@@ -35,6 +35,8 @@
 #endif
 static int wlan_en_gpio = -1;
 #endif //CONFIG_PLATFORM_INTEL_BYT
+extern void wifi_teardown_dt(void);
+extern int wifi_setup_dt(void);
 
 #ifndef dev_to_sdio_func
 #define dev_to_sdio_func(d)     container_of(d, struct sdio_func, dev)
@@ -931,9 +933,7 @@ static int rtw_sdio_resume(struct device *dev)
 			rtw_resume_lock_suspend();			
 			ret = rtw_resume_process(padapter);
 			rtw_resume_unlock_suspend();
-		}
-		else
-		{
+		} else {
 #ifdef CONFIG_RESUME_IN_WORKQUEUE
 			rtw_resume_in_workqueue(pwrpriv);
 #else			
@@ -967,12 +967,19 @@ static int __init rtw_drv_entry(void)
 	DBG_871X_LEVEL(_drv_always_, DRV_NAME" BT-Coex version = %s\n", BTCOEXVERSION);
 #endif // BTCOEXVERSION
 
+	ret =wifi_setup_dt();
+	if (ret)
+	{
+		DBG_871X("%s: setup dt failed!!(%d)\n", __FUNCTION__, ret);
+		ret = -1;
+		goto exit;
+	}
 	ret = platform_wifi_power_on();
 	if (ret)
 	{
 		DBG_871X("%s: power on failed!!(%d)\n", __FUNCTION__, ret);
 		ret = -1;
-		goto exit;
+		goto resource;
 	}
 
 	sdio_drvpriv.drv_registered = _TRUE;
@@ -998,6 +1005,8 @@ static int __init rtw_drv_entry(void)
 
 poweroff:
 	platform_wifi_power_off();
+resource:
+	wifi_teardown_dt();
 
 exit:
 	DBG_871X_LEVEL(_drv_always_, "module init ret=%d\n", ret);
@@ -1016,6 +1025,7 @@ static void __exit rtw_drv_halt(void)
 
 	platform_wifi_power_off();
 
+	wifi_teardown_dt();
 	rtw_suspend_lock_uninit();
 	rtw_drv_proc_deinit();
 	rtw_ndev_notifier_unregister();

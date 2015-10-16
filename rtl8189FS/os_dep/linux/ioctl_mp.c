@@ -147,7 +147,8 @@ int rtw_mp_read_reg(struct net_device *dev,
 		return -EFAULT;
 
 	_rtw_memset(extra, 0, wrqu->length);
-
+	_rtw_memset(data, '\0', sizeof(data));
+	_rtw_memset(tmp, '\0', sizeof(tmp));
 	pch = input;
 	pnext = strpbrk(pch, " ,.-");
 	if (pnext == NULL)
@@ -234,7 +235,7 @@ int rtw_mp_read_reg(struct net_device *dev,
 					break;
 				pch = pnext;
 			}
-			wrqu->length = strlen(extra) - 1;
+			wrqu->length = strlen(extra);
 			break;
 
 	default:
@@ -374,13 +375,14 @@ int rtw_mp_start(struct net_device *dev,
 	if (padapter->registrypriv.mp_mode == 0) {
 		pHalFunc->hal_deinit(padapter);
 		padapter->registrypriv.mp_mode = 1;
-		pHalFunc->hal_init(padapter);
 
 		#ifdef CONFIG_RF_GAIN_OFFSET
 		padapter->registrypriv.kfree_config = 1;
 		rtw_hal_read_chip_info(padapter);
 		rtw_bb_rf_gain_offset(padapter);
 		#endif /*CONFIG_RF_GAIN_OFFSET*/
+
+		pHalFunc->hal_init(padapter);
 	}
 
 	if (padapter->registrypriv.mp_mode == 0)

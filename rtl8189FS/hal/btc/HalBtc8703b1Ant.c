@@ -3281,6 +3281,7 @@ halbtc8703b1ant_InitHwConfig(
 	{
 		pCoexSta->bConCurrentRxModeOn = false;
 		halbtc8703b1ant_SetAntPath(pBtCoexist, BTC_ANT_PATH_WIFI, FORCE_EXEC, TRUE, FALSE);
+		halbtc8703b1ant_SetAntPath(pBtCoexist, BTC_ANT_PATH_WIFI, FORCE_EXEC, FALSE, FALSE);
 	}
 	else
 	{

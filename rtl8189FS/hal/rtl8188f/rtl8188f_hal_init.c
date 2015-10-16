@@ -5029,13 +5029,18 @@ static void hw_var_set_opmode(PADAPTER padapter, u8 variable, u8 *val)
 {
 	u8 val8;
 	u8 mode = *((u8 *)val);
+	static u8 isMonitor = _FALSE;
 
 	PHAL_DATA_TYPE pHalData = GET_HAL_DATA(padapter);
 
-	/* reset RCR */
-	rtw_write32(padapter, REG_RCR, pHalData->ReceiveConfig);
+	if (isMonitor == _TRUE) {
+		/* reset RCR */
+		rtw_write32(padapter, REG_RCR, pHalData->ReceiveConfig);
+		isMonitor = _FALSE;
+	}
 
 	if (mode == _HW_STATE_MONITOR_) {
+		isMonitor = _TRUE;
 		/* set net_type */
 		Set_MSR(padapter, _HW_STATE_NOLINK_);
 
