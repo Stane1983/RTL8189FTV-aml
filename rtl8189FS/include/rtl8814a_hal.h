@@ -51,7 +51,8 @@ enum{
 		VOLTAGE_V25						= 0x03,
 		LDOE25_SHIFT					= 28 ,
 	};
-#define FW_SIZE					      0x10000  // Compatible with RTL8723 Maximal RAM code size 24K.   modified to 32k, TO compatible with 92d maximal fw size 32k
+/* max. iram is 64k , max dmen is 32k. Total = 96k = 0x18000*/
+#define FW_SIZE							0x18000
 #define FW_START_ADDRESS   0x1000
 typedef struct _RT_FIRMWARE_8814 {
 	FIRMWARE_SOURCE	eFWSource;
@@ -282,6 +283,15 @@ VOID hal_ReadPAType_8814A(
 	OUT u8*		pPAType, 
 	OUT u8*		pLNAType
 	);
+void hal_GetRxGainOffset_8814A(
+	PADAPTER	Adapter,
+	pu1Byte		PROMContent,
+	BOOLEAN		AutoloadFail
+	);
+void Hal_EfuseParseKFreeData_8814A(
+	IN		PADAPTER		Adapter,
+	IN		u8				*PROMContent,
+	IN		BOOLEAN			AutoloadFail);
 void	hal_ReadRFEType_8814A(PADAPTER Adapter,u8* PROMContent, BOOLEAN AutoloadFail);
 void	hal_EfuseParseBTCoexistInfo8814A(PADAPTER Adapter, u8* hwinfo, BOOLEAN AutoLoadFail);
 
@@ -308,6 +318,7 @@ u8 SetHalDefVar8814A(PADAPTER padapter, HAL_DEF_VARIABLE variable, void *pval);
 u8 GetHalDefVar8814A(PADAPTER padapter, HAL_DEF_VARIABLE variable, void *pval);
 s32 c2h_id_filter_ccx_8814a(u8 *buf);
 void rtl8814_set_hal_ops(struct hal_ops *pHalFunc);
+void init_hal_spec_8814a(_adapter *adapter);
 
 // register
 void SetBcnCtrlReg(PADAPTER padapter, u8 SetBits, u8 ClearBits);

@@ -201,21 +201,27 @@ static irqreturn_t gpio_hostwakeup_irq_thread(int irq, void *data)
 static u8 gpio_hostwakeup_alloc_irq(PADAPTER padapter)
 {
 	int err;
+	u32 status = 0;
+
 	if (oob_irq == 0) {
 		DBG_871X("oob_irq ZERO!\n");
 		return _FAIL;
 	}
 
 	DBG_871X("%s : oob_irq = %d\n", __func__, oob_irq);
-	
-	/* dont set it IRQF_TRIGGER_LOW, or wowlan */
-	/* power is high after suspend */
-	/* and failing can prevent can not sleep issue if */
-	/* wifi gpio12 pin is not linked with CPU */
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32))
+	status = IRQF_NO_SUSPEND;
+#endif
+
+	if (HIGH_ACTIVE)
+		status |= IRQF_TRIGGER_RISING;
+	else
+		status |= IRQF_TRIGGER_FALLING;
+
 	err = request_threaded_irq(oob_irq, gpio_hostwakeup_irq_thread, NULL,
-		//IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-		IRQF_TRIGGER_FALLING,
-		"rtw_wifi_gpio_wakeup", padapter);
+		status, "rtw_wifi_gpio_wakeup", padapter);
+
 	if (err < 0) {
 		DBG_871X("Oops: can't allocate gpio irq %d err:%d\n", oob_irq, err);
 		return _FALSE;
@@ -457,6 +463,9 @@ u8 rtw_set_hal_ops(PADAPTER padapter)
 	if( rtw_hal_ops_check(padapter) == _FAIL)
 		return _FAIL;
 
+	if (hal_spec_init(padapter) == _FAIL)
+		return _FAIL;
+
 	return _SUCCESS;
 }
 
@@ -563,7 +572,9 @@ _adapter *rtw_sdio_if1_init(struct dvobj_priv *dvobj)
 	//3 8. get WLan MAC address
 	// set mac addr
 	rtw_macaddr_cfg(adapter_mac_addr(padapter),  get_hal_mac_addr(padapter));
+#ifdef CONFIG_P2P
 	rtw_init_wifidirect_addrs(padapter, adapter_mac_addr(padapter), adapter_mac_addr(padapter));
+#endif /* CONFIG_P2P */
 
 	rtw_hal_disable_interrupt(padapter);
 
@@ -803,19 +814,22 @@ _func_enter_;
 	rtw_unregister_early_suspend(pwrctl);
 #endif
 
-	rtw_ps_deny(padapter, PS_DENY_DRV_REMOVE);
-
-	rtw_pm_set_ips(padapter, IPS_NONE);
-	rtw_pm_set_lps(padapter, PS_MODE_ACTIVE);
-
-	LeaveAllPowerSaveMode(padapter);
-
+	if (padapter->bFWReady == _TRUE) {
+		rtw_ps_deny(padapter, PS_DENY_DRV_REMOVE);
+		rtw_pm_set_ips(padapter, IPS_NONE);
+		rtw_pm_set_lps(padapter, PS_MODE_ACTIVE);
+		LeaveAllPowerSaveMode(padapter);
+	}
 	rtw_set_drv_stopped(padapter);	/*for stop thread*/
 #ifdef CONFIG_CONCURRENT_MODE
 	rtw_drv_if2_stop(dvobj->padapters[IFACE_ID1]);
 #endif
 
 #ifdef CONFIG_BT_COEXIST
+	#ifdef CONFIG_BT_COEXIST_SOCKET_TRX
+	if (GET_HAL_DATA(padapter)->EEPROMBluetoothCoexist)
+		rtw_btcoex_close_socket(padapter);
+	#endif
 	rtw_btcoex_HaltNotify(padapter);
 #endif
 
@@ -935,7 +949,9 @@ static int rtw_sdio_resume(struct device *dev)
 			rtw_resume_lock_suspend();			
 			ret = rtw_resume_process(padapter);
 			rtw_resume_unlock_suspend();
-		} else {
+		}
+		else
+		{
 #ifdef CONFIG_RESUME_IN_WORKQUEUE
 			rtw_resume_in_workqueue(pwrpriv);
 #else			

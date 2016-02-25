@@ -85,7 +85,7 @@
 #endif
 
 #ifdef CONFIG_RTL8812A
-#define MAX_CMDBUF_SZ	(512*12)
+#define MAX_CMDBUF_SZ	(512*14)
 #else
 #define MAX_CMDBUF_SZ	(5120)	//(4096)
 #endif
@@ -403,26 +403,16 @@ struct pkt_attrib
 	struct sta_info *ptdls_sta;
 #endif //CONFIG_TDLS
 	u8 key_type;
+
 	u8 icmp_pkt;
-	
+
+#ifdef CONFIG_BEAMFORMING
+	u16 txbf_p_aid;/*beamforming Partial_AID*/
+	u16 txbf_g_id;/*beamforming Group ID*/
+ #endif
+
 };
 #endif
-
-#ifdef PLATFORM_FREEBSD
-#define ETH_ALEN	6		/* Octets in one ethernet addr	 */
-#define ETH_HLEN	14		/* Total octets in header.	 */
-#define ETH_P_IP	0x0800		/* Internet Protocol packet	*/
-
-/*struct rtw_ieee80211_hdr {
-	uint16_t frame_control;
-	uint16_t duration_id;
-	u8 addr1[6];
-	u8 addr2[6];
-	u8 addr3[6];
-	uint16_t seq_ctrl;
-	u8 addr4[6];
-} ;*/
-#endif //PLATFORM_FREEBSD
 
 #define WLANHDR_OFFSET	64
 
@@ -835,6 +825,7 @@ void _rtw_free_xmit_priv (struct xmit_priv *pxmitpriv);
 void rtw_alloc_hwxmits(_adapter *padapter);
 void rtw_free_hwxmits(_adapter *padapter);
 
+s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev);
 
 s32 rtw_xmit(_adapter *padapter, _pkt **pkt);
 bool xmitframe_hiq_filter(struct xmit_frame *xmitframe);

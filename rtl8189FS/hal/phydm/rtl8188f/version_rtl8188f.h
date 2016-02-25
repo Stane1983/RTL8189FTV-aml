@@ -1,5 +1,10 @@
 /*RTL8188F PHY Parameters*/
-#define	SVN_COMMIT_VERSION_8188F	4
-#define	RELEASE_DATE_8188F		20150707
+/* 
+[Caution] 
+  Since 01/Aug/2015, the commit rules will be simplified. 
+  You do not need to fill up the version.h anymore, 
+  only the maintenance supervisor fills it before formal release.
+*/
+#define	RELEASE_DATE_8188F		20151008
 #define	COMMIT_BY_8188F			"BB_DAVID"
-#define	RELEASE_VERSION_8188F		19
+#define	RELEASE_VERSION_8188F		25

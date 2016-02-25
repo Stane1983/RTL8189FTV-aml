@@ -21,7 +21,7 @@
 #ifndef	__PHYDMPOWERTRACKING_H__
 #define    __PHYDMPOWERTRACKING_H__
 
-#define POWRTRACKING_VERSION	"1.0"
+#define POWRTRACKING_VERSION	"1.1"
 
 #define		DPK_DELTA_MAPPING_NUM	13
 #define		index_mapping_HP_NUM	15	
@@ -38,11 +38,9 @@
 #define IQK_MAC_REG_NUM		4
 #define IQK_ADDA_REG_NUM		16
 #define IQK_BB_REG_NUM_MAX	10
-#if (RTL8192D_SUPPORT==1) 
-#define IQK_BB_REG_NUM		10
-#else
+
 #define IQK_BB_REG_NUM		9
-#endif
+
 
 
 #define IQK_Matrix_REG_NUM	8
@@ -199,8 +197,8 @@ typedef struct ODM_RF_Calibration_Structure
 	u4Byte	IQK_BB_backup[IQK_BB_REG_NUM];	
 	u4Byte 	TxIQC_8723B[2][3][2]; // { {S1: 0xc94, 0xc80, 0xc4c} , {S0: 0xc9c, 0xc88, 0xc4c}}
 	u4Byte 	RxIQC_8723B[2][2][2]; // { {S1: 0xc14, 0xca0} ,           {S0: 0xc14, 0xca0}}
-	u4Byte 	TxIQC_8703B[2][3][2]; // { {S1: 0xc94, 0xc80, 0xc4c} , {S0: 0xc9c, 0xc88, 0xc4c}}
-	u4Byte 	RxIQC_8703B[2][2][2]; // { {S1: 0xc14, 0xca0} ,           {S0: 0xc14, 0xca0}}
+	u4Byte	TxIQC_8703B[3][2];	/* { {S1: 0xc94, 0xc80, 0xc4c} , {S0: 0xc9c, 0xc88, 0xc4c}}*/
+	u4Byte	RxIQC_8703B[2][2];	/* { {S1: 0xc14, 0xca0} ,           {S0: 0xc14, 0xca0}}*/
 
 	
 

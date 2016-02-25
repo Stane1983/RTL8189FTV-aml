@@ -380,7 +380,7 @@ void dump_adapters_status(void *sel, struct dvobj_priv *dvobj)
 				, iface->mlmeextpriv.cur_channel
 				, iface->mlmeextpriv.cur_bwmode
 				, iface->mlmeextpriv.cur_ch_offset
-				, ADPT_MLME_S_ARG(iface)
+				, MLME_STATE_ARG(iface)
 				, rtw_is_surprise_removed(iface)?" SR":""
 				, rtw_is_drv_stopped(iface)?" DS":""
 			);
@@ -1226,7 +1226,8 @@ ssize_t proc_reset_trx_info(struct file *file, const char __user *buffer, size_t
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
 	struct dvobj_priv *psdpriv = padapter->dvobj;
 	struct debug_priv *pdbgpriv = &psdpriv->drv_dbg;
-	char cmd[32] = {'0'};
+	char cmd[32] = {0};
+	u8 cnt = 0;
 
 	if (count > sizeof(cmd)) {
 		rtw_warn_on(1);
@@ -1234,7 +1235,9 @@ ssize_t proc_reset_trx_info(struct file *file, const char __user *buffer, size_t
 	}
 
 	if (buffer && !copy_from_user(cmd, buffer, count)) {
-		if('0' == cmd[0]){
+		int num = sscanf(cmd, "%hhx", &cnt);
+
+		if (0 == cnt) {
 			pdbgpriv->dbg_rx_ampdu_drop_count = 0;
 			pdbgpriv->dbg_rx_ampdu_forced_indicate_count = 0;
 			pdbgpriv->dbg_rx_ampdu_loss_count = 0;
@@ -2500,6 +2503,12 @@ int proc_get_all_sta_info(struct seq_file *m, void *v)
 				DBG_871X_SEL_NL(m, "tx_data_pkts=%llu\n", psta->sta_stats.tx_pkts);
 				DBG_871X_SEL_NL(m, "tx_bytes=%llu\n", psta->sta_stats.tx_bytes);
 #endif //CONFIG_TDLS
+
+				dump_st_ctl(m, &psta->st_ctl);
+
+				if (STA_OP_WFD_MODE(psta))
+					DBG_871X_SEL_NL(m, "op_wfd_mode:0x%02x\n", STA_OP_WFD_MODE(psta));
+
 				DBG_871X_SEL_NL(m, "==============================\n");
 			}
 
@@ -3461,6 +3470,11 @@ int proc_get_tdls_info(struct seq_file *m, void *v)
 	u8 SpaceBtwnItemAndValueTmp = 0;
 	u8 NumOfTdlsStaToShow = 0;
 	BOOLEAN FirstMatchFound = _FALSE;
+
+	if (hal_chk_wl_func(padapter, WL_FUNC_TDLS) == _FALSE) {
+		DBG_871X_SEL_NL(m, "No tdls info can be shown since hal doesn't support tdls\n");
+		return 0;
+	}
 
 	proc_tdls_display_tdls_function_info(m);
 	proc_tdls_display_network_info(m);

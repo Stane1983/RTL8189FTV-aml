@@ -341,170 +341,6 @@ static void ConstructNullFunctionData(
 	*pLength = pktlen;
 }
 
-
-static void ConstructProbeRsp(_adapter *padapter, u8 *pframe, u32 *pLength, u8 *StaAddr, BOOLEAN bHideSSID)
-{
-	struct rtw_ieee80211_hdr	*pwlanhdr;
-	u16					*fctrl;
-	u8					*mac, *bssid;
-	u32					pktlen;
-	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
-	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
-	WLAN_BSSID_EX 		*cur_network = &(pmlmeinfo->network);
-#if defined (CONFIG_AP_MODE) && defined (CONFIG_NATIVEAP_MLME)
-	u8 *pwps_ie;
-	uint wps_ielen;
-	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
-#endif /*#if defined (CONFIG_AP_MODE) && defined (CONFIG_NATIVEAP_MLME) */
-#ifdef CONFIG_P2P
-	struct wifidirect_info	*pwdinfo = &(padapter->wdinfo);
-#ifdef CONFIG_WFD
-	u32 				wfdielen = 0;
-#endif /*CONFIG_WFD */
-#endif /*CONFIG_P2P */
-
-
-	/*DBG_871X("%s\n", __func__); */
-
-	pwlanhdr = (struct rtw_ieee80211_hdr *)pframe;
-
-	mac = adapter_mac_addr(padapter);
-	bssid = cur_network->MacAddress;
-
-	fctrl = &(pwlanhdr->frame_ctl);
-	*(fctrl) = 0;
-	_rtw_memcpy(pwlanhdr->addr1, StaAddr, ETH_ALEN);
-	_rtw_memcpy(pwlanhdr->addr2, mac, ETH_ALEN);
-	_rtw_memcpy(pwlanhdr->addr3, bssid, ETH_ALEN);
-
-	DBG_871X("%s FW Mac Addr:" MAC_FMT "\n", __func__, MAC_ARG(mac));
-	DBG_871X("%s FW IP Addr" IP_FMT "\n", __func__, IP_ARG(StaAddr));
-
-	SetSeqNum(pwlanhdr, 0);
-	SetFrameSubType(fctrl, WIFI_PROBERSP);
-
-	pktlen = sizeof(struct rtw_ieee80211_hdr_3addr);
-	pframe += pktlen;
-
-	if (cur_network->IELength > MAX_IE_SZ)
-		return;
-
-	pwps_ie = rtw_get_wps_ie(cur_network->IEs + _FIXED_IE_LENGTH_,
-							 cur_network->IELength - _FIXED_IE_LENGTH_, NULL, &wps_ielen);
-
-	/*inerset & update wps_probe_resp_ie */
-	if ((pmlmepriv->wps_probe_resp_ie != NULL) && pwps_ie && (wps_ielen > 0)) {
-		uint wps_offset, remainder_ielen;
-		u8 *premainder_ie;
-
-		wps_offset = (uint)(pwps_ie - cur_network->IEs);
-
-		premainder_ie = pwps_ie + wps_ielen;
-
-		remainder_ielen = cur_network->IELength - wps_offset - wps_ielen;
-
-		_rtw_memcpy(pframe, cur_network->IEs, wps_offset);
-		pframe += wps_offset;
-		pktlen += wps_offset;
-
-		wps_ielen = (uint)pmlmepriv->wps_probe_resp_ie[1];/*to get ie data len */
-		if ((wps_offset + wps_ielen + 2) <= MAX_IE_SZ) {
-			_rtw_memcpy(pframe, pmlmepriv->wps_probe_resp_ie, wps_ielen + 2);
-			pframe += wps_ielen + 2;
-			pktlen += wps_ielen + 2;
-		}
-
-		if ((wps_offset + wps_ielen + 2 + remainder_ielen) <= MAX_IE_SZ) {
-			_rtw_memcpy(pframe, premainder_ie, remainder_ielen);
-			pframe += remainder_ielen;
-			pktlen += remainder_ielen;
-		}
-	} else {
-		_rtw_memcpy(pframe, cur_network->IEs, cur_network->IELength);
-		pframe += cur_network->IELength;
-		pktlen += cur_network->IELength;
-	}
-
-	/* retrieve SSID IE from cur_network->Ssid */
-	{
-		u8 *ssid_ie;
-		sint ssid_ielen;
-		sint ssid_ielen_diff;
-		u8 buf[MAX_IE_SZ];
-		u8 *ies = pframe + sizeof(struct rtw_ieee80211_hdr_3addr);
-
-		ssid_ie = rtw_get_ie(ies + _FIXED_IE_LENGTH_, _SSID_IE_, &ssid_ielen,
-							 (pframe - ies) - _FIXED_IE_LENGTH_);
-
-		ssid_ielen_diff = cur_network->Ssid.SsidLength - ssid_ielen;
-
-		if (ssid_ie &&	cur_network->Ssid.SsidLength) {
-			uint remainder_ielen;
-			u8 *remainder_ie;
-			remainder_ie = ssid_ie + 2;
-			remainder_ielen = (pframe - remainder_ie);
-
-			if (remainder_ielen > MAX_IE_SZ) {
-				DBG_871X_LEVEL(_drv_warning_, FUNC_ADPT_FMT" remainder_ielen > MAX_IE_SZ\n", FUNC_ADPT_ARG(padapter));
-				remainder_ielen = MAX_IE_SZ;
-			}
-
-			_rtw_memcpy(buf, remainder_ie, remainder_ielen);
-			_rtw_memcpy(remainder_ie + ssid_ielen_diff, buf, remainder_ielen);
-			*(ssid_ie + 1) = cur_network->Ssid.SsidLength;
-			_rtw_memcpy(ssid_ie + 2, cur_network->Ssid.Ssid, cur_network->Ssid.SsidLength);
-			pframe += ssid_ielen_diff;
-			pktlen += ssid_ielen_diff;
-		}
-	}
-
-#ifdef CONFIG_P2P
-	if (rtw_p2p_chk_role(pwdinfo, P2P_ROLE_GO) /*&& is_valid_p2p_probereq*/) {
-		u32 len;
-#ifdef CONFIG_IOCTL_CFG80211
-		if (adapter_wdev_data(padapter)->p2p_enabled && pwdinfo->driver_interface == DRIVER_CFG80211) {
-			/*if pwdinfo->role == P2P_ROLE_DEVICE will call issue_probersp_p2p() */
-			len = pmlmepriv->p2p_go_probe_resp_ie_len;
-			if (pmlmepriv->p2p_go_probe_resp_ie && len > 0)
-				_rtw_memcpy(pframe, pmlmepriv->p2p_go_probe_resp_ie, len);
-		} else
-#endif /*CONFIG_IOCTL_CFG80211 */
-		{
-			len = build_probe_resp_p2p_ie(pwdinfo, pframe);
-		}
-
-		pframe += len;
-		pktlen += len;
-
-#ifdef CONFIG_WFD
-#ifdef CONFIG_IOCTL_CFG80211
-		if (_TRUE == pwdinfo->wfd_info->wfd_enable) {
-			/* suspect code indent for conditional statements */
-#else
-		{
-#endif /*CONFIG_IOCTL_CFG80211 */
-			len = build_probe_resp_wfd_ie(pwdinfo, pframe, 0);
-		}
-#ifdef CONFIG_IOCTL_CFG80211
-		else {
-			len = 0;
-			if (pmlmepriv->wfd_probe_resp_ie && pmlmepriv->wfd_probe_resp_ie_len > 0) {
-				len = pmlmepriv->wfd_probe_resp_ie_len;
-				_rtw_memcpy(pframe, pmlmepriv->wfd_probe_resp_ie, len);
-			}
-		}
-#endif /*CONFIG_IOCTL_CFG80211		 */
-		pframe += len;
-		pktlen += len;
-#endif /*CONFIG_WFD */
-
-	}
-#endif /*CONFIG_P2P */
-
-	*pLength = pktlen;
-
-}
-
 /* To check if reserved page content is destroyed by beacon because beacon is too large. */
 /* 2010.06.23. Added by tynli. */
 VOID
@@ -600,23 +436,6 @@ static void rtl8188f_set_FwAoacRsvdPage_cmd(PADAPTER padapter, PRSVDPAGE_LOC rsv
 	}
 
 #endif /* CONFIG_WOWLAN */
-}
-
-
-void rtl8188f_set_FwMediaStatusRpt_cmd(PADAPTER	padapter, u8 mstatus, u8 macid)
-{
-	u8 u1H2CMediaStatusRptParm[H2C_MEDIA_STATUS_RPT_LEN] = {0};
-	u8 macid_end = 0;
-
-	DBG_871X("%s(): mstatus = %d macid=%d\n", __func__, mstatus, macid);
-
-	SET_8188F_H2CCMD_MSRRPT_PARM_OPMODE(u1H2CMediaStatusRptParm, mstatus);
-	SET_8188F_H2CCMD_MSRRPT_PARM_MACID_IND(u1H2CMediaStatusRptParm, 0);
-	SET_8188F_H2CCMD_MSRRPT_PARM_MACID(u1H2CMediaStatusRptParm, macid);
-	SET_8188F_H2CCMD_MSRRPT_PARM_MACID_END(u1H2CMediaStatusRptParm, macid_end);
-
-	RT_PRINT_DATA(_module_hal_init_c_, _drv_always_, "u1H2CMediaStatusRptParm:", u1H2CMediaStatusRptParm, H2C_MEDIA_STATUS_RPT_LEN);
-	FillH2CCmd8188F(padapter, H2C_8188F_MEDIA_STATUS_RPT, H2C_MEDIA_STATUS_RPT_LEN, u1H2CMediaStatusRptParm);
 }
 
 static void rtl8188f_set_FwKeepAlive_cmd(PADAPTER padapter, u8 benable, u8 pkt_type)
@@ -1077,9 +896,8 @@ void rtl8188f_set_FwJoinBssRpt_cmd(PADAPTER padapter, u8 mstatus)
 void rtl8188f_Add_RateATid(PADAPTER pAdapter, u64 rate_bitmap, u8 *arg, u8 rssi_level)
 {
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(pAdapter);
-	struct mlme_ext_priv	*pmlmeext = &pAdapter->mlmeextpriv;
-	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
-	struct sta_info	*psta;
+	struct macid_ctl_t *macid_ctl = &pAdapter->dvobj->macid_ctl;
+	struct sta_info	*psta = NULL;
 	u8 mac_id = arg[0];
 	u8 raid = arg[1];
 	u8 shortGI = arg[2];
@@ -1087,9 +905,13 @@ void rtl8188f_Add_RateATid(PADAPTER pAdapter, u64 rate_bitmap, u8 *arg, u8 rssi_
 	u32 bitmap = (u32) rate_bitmap;
 	u32 mask = bitmap & 0x0FFFFFFF;
 
-	psta = pmlmeinfo->FW_sta_info[mac_id].psta;
-	if (psta == NULL)
+	if (mac_id < macid_ctl->num)
+		psta = macid_ctl->sta[mac_id];
+	if (psta == NULL) {
+		DBG_871X_LEVEL(_drv_always_, FUNC_ADPT_FMT" macid:%u, sta is NULL\n"
+			, FUNC_ADPT_ARG(pAdapter), mac_id);
 		return;
+	}
 
 	bw = psta->bw_mode;
 

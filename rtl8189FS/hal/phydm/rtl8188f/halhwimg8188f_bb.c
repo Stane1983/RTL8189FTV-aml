@@ -18,7 +18,7 @@
 * 
 ******************************************************************************/
 
-/*Image2HeaderVersion: 2.14*/
+/*Image2HeaderVersion: 2.18*/
 #include "mp_precomp.h"
 #include "../phydm_precomp.h"
 
@@ -218,8 +218,7 @@ ODM_ReadAndConfig_MP_8188F_AGC_TAB(
 				} else if (cCond == COND_ELSE) { /*else*/
 					bMatched = bSkipped?FALSE:TRUE;
 					ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_LOUD, ("ELSE\n"));
-				}
-				else {/*if , else if*/
+				} else {/*if , else if*/
 					pre_v1 = v1;
 					pre_v2 = v2;
 					ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_LOUD, ("IF or ELSE IF\n"));
@@ -247,7 +246,7 @@ ODM_ReadAndConfig_MP_8188F_AGC_TAB(
 u4Byte
 ODM_GetVersion_MP_8188F_AGC_TAB(void)
 {
-	   return 19;
+	   return 25;
 }
 
 /******************************************************************************
@@ -310,7 +309,11 @@ u4Byte Array_MP_8188F_PHY_REG[] = {
 		0x96C, 0x00000003,
 		0xA00, 0x00D047C8,
 		0xA04, 0x80FF800C,
+	0x80000400,	0x00000000,	0x40000000,	0x00000000,
 		0xA08, 0x8C038300,
+	0xA0000000,	0x00000000,
+		0xA08, 0x8CCD8300,
+	0xB0000000,	0x00000000,
 		0xA0C, 0x2E7F120F,
 		0xA10, 0x9500BB78,
 		0xA14, 0x1114D028,
@@ -322,11 +325,7 @@ u4Byte Array_MP_8188F_PHY_REG[] = {
 		0xA2C, 0x00D30000,
 		0xA70, 0x101FBF00,
 		0xA74, 0x00000007,
-	0x80000400,	0x00000000,	0x40000000,	0x00000000,
-		0xA78, 0x00000900,
-	0xA0000000,	0x00000000,
 		0xA78, 0x00008900,
-	0xB0000000,	0x00000000,
 		0xA7C, 0x225B0606,
 		0xA80, 0x218075B1,
 		0xA84, 0x00120000,
@@ -371,7 +370,11 @@ u4Byte Array_MP_8188F_PHY_REG[] = {
 		0xC78, 0x0000001F,
 		0xC7C, 0x00B91612,
 		0xC80, 0x390000E4,
-		0xC84, 0x11F60000,
+	0x80000400,	0x00000000,	0x40000000,	0x00000000,
+		0xC84, 0x21F60000,
+	0xA0000000,	0x00000000,
+		0xC84, 0x71F60000,
+	0xB0000000,	0x00000000,
 		0xC88, 0x40000100,
 		0xC8C, 0x20200000,
 		0xC90, 0x00091521,
@@ -445,13 +448,8 @@ u4Byte Array_MP_8188F_PHY_REG[] = {
 		0xE54, 0x10008C1F,
 		0xE58, 0x02140102,
 		0xE5C, 0x28160D05,
-#ifdef ENABLE_V17
-		0xE60, 0x00000048,
-		0xE60, 0x021400E0,
-#else
 		0xE60, 0x00000008,
 		0xE60, 0x021400A0,
-#endif
 		0xE64, 0x281600A0,
 		0xE6C, 0x01C00010,
 		0xE70, 0x01C00010,
@@ -503,8 +501,7 @@ ODM_ReadAndConfig_MP_8188F_PHY_REG(
 				} else if (cCond == COND_ELSE) { /*else*/
 					bMatched = bSkipped?FALSE:TRUE;
 					ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_LOUD, ("ELSE\n"));
-				}
-				else {/*if , else if*/
+				} else {/*if , else if*/
 					pre_v1 = v1;
 					pre_v2 = v2;
 					ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_LOUD, ("IF or ELSE IF\n"));
@@ -532,7 +529,7 @@ ODM_ReadAndConfig_MP_8188F_PHY_REG(
 u4Byte
 ODM_GetVersion_MP_8188F_PHY_REG(void)
 {
-	   return 19;
+	   return 25;
 }
 
 /******************************************************************************
@@ -581,7 +578,7 @@ ODM_ReadAndConfig_MP_8188F_PHY_REG_PG(
 	    odm_ConfigBB_PHY_REG_PG_8188F(pDM_Odm, v1, v2, v3, v4, v5, v6);
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-	rsprintf(pHalData->BufOfLinesPwrByRate[i/6], 100, "%s, %s, %s, 0x%X, 0x%08X, 0x%08X,",
+	rsprintf((char *)pHalData->BufOfLinesPwrByRate[i/6], 100, "%s, %s, %s, 0x%X, 0x%08X, 0x%08X,",
 		(v1 == 0?"2.4G":"  5G"), (v2 == 0?"A":"B"), (v3 == 0?"1Tx":"2Tx"), v4, v5, v6);
 #endif
 	}

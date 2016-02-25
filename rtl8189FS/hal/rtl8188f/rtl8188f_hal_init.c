@@ -1234,6 +1234,15 @@ s32 rtl8188f_FirmwareDownload(PADAPTER padapter, BOOLEAN  bUsedWoWLANFw)
 #if 1
 	DBG_871X("%s by IO write!\n", __func__);
 
+	/*
+	* Suggested by Filen. If 8051 is running in RAM code, driver should inform Fw to reset by itself,
+	* or it will cause download Fw fail. 2010.02.01. by tynli.
+	*/
+	if (rtw_read8(padapter, REG_MCUFWDL) & RAM_DL_SEL) {
+		rtw_write8(padapter, REG_MCUFWDL, 0x00);
+		_8051Reset8188(padapter);
+	}
+
 	_FWDownloadEnable(padapter, _TRUE);
 
 	while (!RTW_CANNOT_RUN(padapter)
@@ -3125,19 +3134,19 @@ void UpdateHalRAMask8188F(PADAPTER padapter, u32 mac_id, u8 rssi_level)
 {
 	u32	mask, rate_bitmap;
 	u8	shortGIrate = _FALSE;
-	struct sta_info	*psta;
+	struct sta_info	*psta = NULL;
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct macid_ctl_t *macid_ctl = &padapter->dvobj->macid_ctl;
 
-	DBG_871X("%s(): mac_id=%d rssi_level=%d\n", __func__, mac_id, rssi_level);
-
-	if (mac_id >= NUM_STA)   /*CAM_SIZE */
+	if (mac_id < macid_ctl->num)
+		psta = macid_ctl->sta[mac_id];
+	if (psta == NULL) {
+		DBG_871X_LEVEL(_drv_always_, FUNC_ADPT_FMT" macid:%u, sta is NULL\n"
+			, FUNC_ADPT_ARG(padapter), mac_id);
 		return;
-
-	psta = pmlmeinfo->FW_sta_info[mac_id].psta;
-	if (psta == NULL)
-		return;
+	}
 
 	shortGIrate = query_ra_short_GI(psta);
 
@@ -3262,7 +3271,6 @@ void rtl8188f_set_hal_ops(struct hal_ops *pHalFunc)
 	pHalFunc->read_chip_version = &rtl8188f_read_chip_version;
 
 	pHalFunc->UpdateRAMaskHandler = &UpdateHalRAMask8188F;
-
 	pHalFunc->set_bwmode_handler = &PHY_SetBWMode8188F;
 	pHalFunc->set_channel_handler = &PHY_SwChnl8188F;
 	pHalFunc->set_chnl_bw_handler = &PHY_SetSwChnlBWMode8188F;
@@ -3386,6 +3394,24 @@ void rtl8188f_DeinitAntenna_Selection(PADAPTER padapter)
 
 }
 
+void init_hal_spec_8188f(_adapter *adapter)
+{
+	struct hal_spec_t *hal_spec = GET_HAL_SPEC(adapter);
+
+	hal_spec->macid_num = MACID_NUM_8188F;
+	hal_spec->sec_cam_ent_num = SEC_CAM_ENT_NUM_8188F;
+	hal_spec->sec_cap = 0;
+	hal_spec->nss_num = NSS_NUM_8188F;
+	hal_spec->band_cap = BAND_CAP_8188F;
+	hal_spec->bw_cap = BW_CAP_8188F;
+
+	hal_spec->wl_func = 0
+						| WL_FUNC_P2P
+						| WL_FUNC_MIRACAST
+						| WL_FUNC_TDLS
+						;
+}
+
 void rtl8188f_init_default_value(PADAPTER padapter)
 {
 	PHAL_DATA_TYPE pHalData;
@@ -3397,9 +3423,6 @@ void rtl8188f_init_default_value(PADAPTER padapter)
 	if (!adapter_to_pwrctl(padapter)->bkeepfwalive)
 		pHalData->LastHMEBoxNum = 0;
 
-	/* hal capability values */
-	pHalData->macid_num = MACID_NUM_8188F;
-	pHalData->sec_cam_ent_num = SEC_CAM_ENT_NUM_8188F;
 	padapter->registrypriv.wireless_mode = WIRELESS_11BG_24N;
 
 	/*init phydm default value */
@@ -4119,7 +4142,7 @@ Hal_EfuseParseTxPowerInfo_8188F(
 	/*RT_TRACE(_module_hci_hal_init_c_, _drv_notice_, ("%s(): AutoLoadFail = %d\n", __func__, AutoLoadFail)); */
 	Hal_ReadPowerValueFromPROM_8188F(padapter, &pwrInfo24G, PROMContent, AutoLoadFail);
 	for (rfPath = 0; rfPath < MAX_RF_PATH; rfPath++) {
-		for (ch = 0; ch < CHANNEL_MAX_NUMBER_2G; ch++) {
+		for (ch = 0; ch < CENTER_CH_2G_NUM; ch++) {
 			Hal_GetChnlGroup8188F(ch + 1, &group);
 
 			if (ch == 14 - 1) {
@@ -4180,88 +4203,71 @@ Hal_EfuseParseEEPROMVer_8188F(
 			 pHalData->EEPROMVersion));
 }
 
-#ifndef PPG_MAC_HIDDEN_HANDLE
-	#define PPG_MAC_HIDDEN_HANDLE 1
-#endif
 #ifndef DBG_PPG_MAC_HIDDEN_HANDLE
 	#define DBG_PPG_MAC_HIDDEN_HANDLE 0
 #endif
 
 #define PPG_MAC_HIDDEN_START_8188F		0xF8
-#define PPG_MAC_HIDDEN_END_8188F		0xF8
+#define PPG_MAC_HIDDEN_END_8188F		0xFD
 
-#define IS_PPG_RANGE_UUID_8188F						((PPG_MAC_HIDDEN_START_8188F <= 0xF4) && (PPG_MAC_HIDDEN_END_8188F >= 0xF6))
+#define IS_PPG_RANGE_UUID_8188F						((PPG_MAC_HIDDEN_START_8188F <= 0xF4) && (PPG_MAC_HIDDEN_END_8188F >= 0xF7))
 #define GET_PMH_UUID_X_8188F(_pmh_m)				LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xF4 - PPG_MAC_HIDDEN_START_8188F, 0, 8)
 #define GET_PMH_UUID_Y_8188F(_pmh_m)				LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xF5 - PPG_MAC_HIDDEN_START_8188F, 0, 8)
 #define GET_PMH_UUID_Z_8188F(_pmh_m)				LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xF6 - PPG_MAC_HIDDEN_START_8188F, 0, 5)
 #define GET_PMH_UUID_CRC_8188F(_pmh_m)				LE_BITS_TO_2BYTE(((u8 *)(_pmh_m)) + 0xF6 - PPG_MAC_HIDDEN_START_8188F, 5, 11)
 
+#define IS_PPG_RANGE_HCI_TYPE_8188F					((PPG_MAC_HIDDEN_START_8188F <= 0xF8) && (PPG_MAC_HIDDEN_END_8188F >= 0xF8))
 #define IS_PPG_RANGE_PACKAGE_TYPE_8188F				((PPG_MAC_HIDDEN_START_8188F <= 0xF8) && (PPG_MAC_HIDDEN_END_8188F >= 0xF8))
-#define GET_PMH_PACKAGE_TYPE_8188F(_pmh_m)			LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xF8 - PPG_MAC_HIDDEN_START_8188F, 0, 4)
+#define GET_PMH_HCI_TYPE_8188F(_pmh_m)				LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xF8 - PPG_MAC_HIDDEN_START_8188F, 0, 4)
+#define GET_PMH_PACKAGE_TYPE_8188F(_pmh_m)			LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xF8 - PPG_MAC_HIDDEN_START_8188F, 4, 4)
 
+#define IS_PPG_RANGE_WL_FUNC_8188F					((PPG_MAC_HIDDEN_START_8188F <= 0xF9) && (PPG_MAC_HIDDEN_END_8188F >= 0xF9))
 #define IS_PPG_RANGE_HW_SPECIAL_TYPE_8188F			((PPG_MAC_HIDDEN_START_8188F <= 0xF9) && (PPG_MAC_HIDDEN_END_8188F >= 0xF9))
-#define GET_PMH_HW_SPECIAL_TYPE_RM1_8188F(_pmh_m)	LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xF9 - PPG_MAC_HIDDEN_START_8188F, 0, 4)
+#define GET_PMH_WL_FUNC_8188F(_pmh_m)				LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xF9 - PPG_MAC_HIDDEN_START_8188F, 0, 4)
 #define GET_PMH_HW_SPECIAL_TYPE_8188F(_pmh_m)		LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xF9 - PPG_MAC_HIDDEN_START_8188F, 4, 4)
 
-#define IS_PPG_RANGE_ANT_NUM_8188F					((PPG_MAC_HIDDEN_START_8188F <= 0xFA) && (PPG_MAC_HIDDEN_END_8188F >= 0xFB))
-#define GET_PMH_ANT_NUM_RM3_8188F(_pmh_m)			LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFA - PPG_MAC_HIDDEN_START_8188F, 1, 3)
-#define GET_PMH_ANT_NUM_RM2_8188F(_pmh_m)			LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFA - PPG_MAC_HIDDEN_START_8188F, 5, 3)
-#define GET_PMH_ANT_NUM_RM1_8188F(_pmh_m)			LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFB - PPG_MAC_HIDDEN_START_8188F, 1, 3)
+#define IS_PPG_RANGE_BW_8188F						((PPG_MAC_HIDDEN_START_8188F <= 0xFB) && (PPG_MAC_HIDDEN_END_8188F >= 0xFB))
+#define IS_PPG_RANGE_ANT_NUM_8188F					((PPG_MAC_HIDDEN_START_8188F <= 0xFB) && (PPG_MAC_HIDDEN_END_8188F >= 0xFB))
+#define GET_PMH_BW_8188F(_pmh_m)					LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFB - PPG_MAC_HIDDEN_START_8188F, 0, 3)
 #define GET_PMH_ANT_NUM_8188F(_pmh_m)				LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFB - PPG_MAC_HIDDEN_START_8188F, 5, 3)
 
-#define IS_PPG_RANGE_80211_PROTOCOL_8188F			((PPG_MAC_HIDDEN_START_8188F <= 0xFC) && (PPG_MAC_HIDDEN_END_8188F >= 0xFD))
-#define IS_PPG_RANGE_NIC_8188F						((PPG_MAC_HIDDEN_START_8188F <= 0xFC) && (PPG_MAC_HIDDEN_END_8188F >= 0xFD))
-#define GET_PMH_80211_PROTOCOL_RM3_8188F(_pmh_m)	LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFC - PPG_MAC_HIDDEN_START_8188F, 0, 2)
-#define GET_PMH_80211_PROTOCOL_RM2_8188F(_pmh_m)	LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFC - PPG_MAC_HIDDEN_START_8188F, 2, 2)
-#define GET_PMH_NIC_RM3_8188F(_pmh_m)				LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFC - PPG_MAC_HIDDEN_START_8188F, 4, 2)
-#define GET_PMH_NIC_RM2_8188F(_pmh_m)				LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFC - PPG_MAC_HIDDEN_START_8188F, 6, 2)
-#define GET_PMH_80211_PROTOCOL_RM1_8188F(_pmh_m)	LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFD - PPG_MAC_HIDDEN_START_8188F, 0, 2)
+#define IS_PPG_RANGE_80211_PROTOCOL_8188F			((PPG_MAC_HIDDEN_START_8188F <= 0xFD) && (PPG_MAC_HIDDEN_END_8188F >= 0xFD))
+#define IS_PPG_RANGE_NIC_8188F						((PPG_MAC_HIDDEN_START_8188F <= 0xFD) && (PPG_MAC_HIDDEN_END_8188F >= 0xFD))
 #define GET_PMH_80211_PROTOCOL_8188F(_pmh_m)		LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFD - PPG_MAC_HIDDEN_START_8188F, 2, 2)
-#define GET_PMH_NIC_RM1_8188F(_pmh_m)				LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFD - PPG_MAC_HIDDEN_START_8188F, 4, 2)
 #define GET_PMH_NIC_8188F(_pmh_m)					LE_BITS_TO_1BYTE(((u8 *)(_pmh_m)) + 0xFD - PPG_MAC_HIDDEN_START_8188F, 6, 2)
 
 VOID
 Hal_EfuseParseMacHidden_8188F(
-	IN	PADAPTER		pAdapter,
+	IN	PADAPTER		adapter,
 	IN	u8				*hwinfo,
 	IN	BOOLEAN 	AutoLoadFail
 )
 {
-#if PPG_MAC_HIDDEN_HANDLE
-	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(pAdapter);
+	HAL_DATA_TYPE	*hal_data = GET_HAL_DATA(adapter);
+	struct hal_spec_t *hal_spec = GET_HAL_SPEC(adapter);
 
 	u8 pmh_map[PPG_MAC_HIDDEN_END_8188F - PPG_MAC_HIDDEN_START_8188F + 1];
 	u16 start = PPG_MAC_HIDDEN_START_8188F;
 	u16 end = PPG_MAC_HIDDEN_END_8188F;
 	int i;
 
-#if IS_PPG_RANGE_UUID_8188F
-	u32 uuid;
-	u8 uuid_x;
-	u8 uuid_y;
-	u8 uuid_z;
-	u16 uuid_crc;
-#endif
-#if IS_PPG_RANGE_PACKAGE_TYPE_8188F
-	u8 package_type;
-#endif
-#if IS_PPG_RANGE_HW_SPECIAL_TYPE_8188F
-	u8 hw_special_type = 0x0F; /* no used */
-#endif
-#if IS_PPG_RANGE_ANT_NUM_8188F
+	u8 uuid_x = 0;
+	u8 uuid_y = 0;
+	u8 uuid_z = 0;
+	u16 uuid_crc = 0;
+	u8 hci_type = 0x0F; /* no used */
+	u8 package_type = 0x0F; /* QFN24 */
+	u8 wl_func = 0xF; /* all support */
+	u8 hw_stype = 0x0F; /* no used */
+	u8 bw = 0x6; /* 40MHz */
 	u8 ant_num = 0x01 /* 1 ANT */;
-#endif
-#if IS_PPG_RANGE_NIC_8188F
-	u8 nic = 0x03; /* 88FU/8189FS */
-#endif
-#if IS_PPG_RANGE_80211_PROTOCOL_8188F
 	u8 protocol = 0x02; /* 11n only */
-#endif
+	u8 nic = 0x03; /* NIC */
 
-	Efuse_PowerSwitch(pAdapter, _FALSE, _TRUE);
+	Efuse_PowerSwitch(adapter, _FALSE, _TRUE);
 	for (i = 0; i <= end - start; i++)
-		efuse_OneByteRead(pAdapter, start + i, pmh_map + i, FALSE);
-	Efuse_PowerSwitch(pAdapter, _FALSE, _FALSE);
+		efuse_OneByteRead(adapter, start + i, pmh_map + i, FALSE);
+	Efuse_PowerSwitch(adapter, _FALSE, _FALSE);
 
 #if IS_PPG_RANGE_UUID_8188F
 	uuid_x = GET_PMH_UUID_X_8188F(pmh_map);
@@ -4269,86 +4275,48 @@ Hal_EfuseParseMacHidden_8188F(
 	uuid_z = GET_PMH_UUID_Z_8188F(pmh_map);
 	uuid_crc = GET_PMH_UUID_CRC_8188F(pmh_map);
 #endif
-
+#if IS_PPG_RANGE_HCI_TYPE_8188F
+	hci_type = GET_PMH_HCI_TYPE_8188F(pmh_map);
+#endif
 #if IS_PPG_RANGE_PACKAGE_TYPE_8188F
 	package_type = GET_PMH_PACKAGE_TYPE_8188F(pmh_map);
 #endif
-
+#if IS_PPG_RANGE_WL_FUNC_8188F
+	wl_func = GET_PMH_WL_FUNC_8188F(pmh_map);
+#endif
 #if IS_PPG_RANGE_HW_SPECIAL_TYPE_8188F
-	if (GET_PMH_HW_SPECIAL_TYPE_8188F(pmh_map))
-		hw_special_type = GET_PMH_HW_SPECIAL_TYPE_8188F(pmh_map);
-	else if (GET_PMH_HW_SPECIAL_TYPE_RM1_8188F(pmh_map))
-		hw_special_type = GET_PMH_HW_SPECIAL_TYPE_RM1_8188F(pmh_map);
-	else
-		rtw_warn_on(1);
+	hw_stype = GET_PMH_HW_SPECIAL_TYPE_8188F(pmh_map);
 #endif
-
+#if IS_PPG_RANGE_BW_8188F
+	bw = GET_PMH_BW_8188F(pmh_map);
+#endif
 #if IS_PPG_RANGE_ANT_NUM_8188F
-	if (GET_PMH_ANT_NUM_8188F(pmh_map))
-		ant_num = GET_PMH_ANT_NUM_8188F(pmh_map);
-	else if (GET_PMH_ANT_NUM_RM1_8188F(pmh_map))
-		ant_num = GET_PMH_ANT_NUM_RM1_8188F(pmh_map);
-	else if (GET_PMH_ANT_NUM_RM2_8188F(pmh_map))
-		ant_num = GET_PMH_ANT_NUM_RM2_8188F(pmh_map);
-	else if (GET_PMH_ANT_NUM_RM3_8188F(pmh_map))
-		ant_num = GET_PMH_ANT_NUM_RM3_8188F(pmh_map);
-	else
-		rtw_warn_on(1);
+	ant_num = GET_PMH_ANT_NUM_8188F(pmh_map);
 #endif
-
 #if IS_PPG_RANGE_80211_PROTOCOL_8188F
-	if (GET_PMH_80211_PROTOCOL_8188F(pmh_map))
-		protocol = GET_PMH_80211_PROTOCOL_8188F(pmh_map);
-	else if (GET_PMH_80211_PROTOCOL_RM1_8188F(pmh_map))
-		protocol = GET_PMH_80211_PROTOCOL_RM1_8188F(pmh_map);
-	else if (GET_PMH_80211_PROTOCOL_RM2_8188F(pmh_map))
-		protocol = GET_PMH_80211_PROTOCOL_RM2_8188F(pmh_map);
-	else if (GET_PMH_80211_PROTOCOL_RM3_8188F(pmh_map))
-		protocol = GET_PMH_80211_PROTOCOL_RM3_8188F(pmh_map);
-	else
-		rtw_warn_on(1);
+	protocol = GET_PMH_80211_PROTOCOL_8188F(pmh_map);
 #endif
-
 #if IS_PPG_RANGE_NIC_8188F
-	if (GET_PMH_NIC_8188F(pmh_map))
-		nic = GET_PMH_NIC_8188F(pmh_map);
-	else if (GET_PMH_NIC_RM1_8188F(pmh_map))
-		nic = GET_PMH_NIC_RM1_8188F(pmh_map);
-	else if (GET_PMH_NIC_RM2_8188F(pmh_map))
-		nic = GET_PMH_NIC_RM2_8188F(pmh_map);
-	else if (GET_PMH_NIC_RM3_8188F(pmh_map))
-		nic = GET_PMH_NIC_RM3_8188F(pmh_map);
-	else
-		rtw_warn_on(1);
+	nic = GET_PMH_NIC_8188F(pmh_map);
 #endif
 
 	if (DBG_PPG_MAC_HIDDEN_HANDLE) {
-		#if IS_PPG_RANGE_UUID_8188F
-		DBG_871X("uuid x:0x%02x y:0x%02x z:0x%x crc:0x%x\n", uuid_x, uuid_y, uuid_z, uuid_crc);
-		#endif
-		#if IS_PPG_RANGE_PACKAGE_TYPE_8188F
+		if (IS_PPG_RANGE_UUID_8188F)
+			DBG_871X("uuid x:0x%02x y:0x%02x z:0x%x crc:0x%x\n", uuid_x, uuid_y, uuid_z, uuid_crc);
+		DBG_871X("hci_type:0x%x\n", hci_type);
 		DBG_871X("package_type:0x%x\n", package_type);
-		#endif
-		#if IS_PPG_RANGE_HW_SPECIAL_TYPE_8188F
-		DBG_871X("hw_special_type:0x%x\n", hw_special_type);
-		#endif
-		#if IS_PPG_RANGE_ANT_NUM_8188F
+		DBG_871X("wl_func:0x%x\n", wl_func);
+		DBG_871X("hw_stype:0x%x\n", hw_stype);
+		DBG_871X("bw:0x%x\n", bw);
 		DBG_871X("ant_num:0x%x\n", ant_num);
-		#endif
-		#if IS_PPG_RANGE_NIC_8188F
-		DBG_871X("nic:0x%x\n", nic);
-		#endif
-		#if IS_PPG_RANGE_80211_PROTOCOL_8188F
 		DBG_871X("protocol:0x%x\n", protocol);
-		#endif
+		DBG_871X("nic:0x%x\n", nic);
 	}
 
-#if IS_PPG_RANGE_PACKAGE_TYPE_8188F
-	pHalData->PackageType = package_type;
-	DBG_871X("PackageType = 0x%X\n", pHalData->PackageType);
-#endif
-
-#endif /* PPG_MAC_HIDDEN_HANDLE */
+	hal_data->PackageType = package_type;
+	hal_spec->wl_func &= mac_hidden_wl_func_to_hal_wl_func(wl_func);
+	hal_spec->bw_cap &= mac_hidden_max_bw_to_hal_bw_cap(bw);
+	hal_spec->nss_num = rtw_min(hal_spec->nss_num, ant_num);
 }
 
 #if 0 /* Do not need for rtl8188f */
@@ -4376,14 +4344,14 @@ Hal_EfuseParseChnlPlan_8188F(
 )
 {
 	padapter->mlmepriv.ChannelPlan = hal_com_config_channel_plan(
-										 padapter
-										 , hwinfo ? hwinfo[EEPROM_ChannelPlan_8188F] : 0xFF
-										 , padapter->registrypriv.channel_plan
-										 , RT_CHANNEL_DOMAIN_WORLD_NULL
-										 , AutoLoadFail
-									 );
-
-	RT_TRACE(_module_hci_hal_init_c_, _drv_notice_, ("EEPROM ChannelPlan=0x%02x\n", padapter->mlmepriv.ChannelPlan));
+		padapter
+		, hwinfo ? &hwinfo[EEPROM_COUNTRY_CODE_8188F] : NULL
+		, hwinfo ? hwinfo[EEPROM_ChannelPlan_8188F] : 0xFF
+		, padapter->registrypriv.alpha2
+		, padapter->registrypriv.channel_plan
+		, RTW_CHPLAN_WORLD_NULL
+		, AutoLoadFail
+	);
 }
 
 VOID
@@ -4539,7 +4507,7 @@ void Hal_EfuseParseKFreeData_8188F(
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(Adapter);
 	struct kfree_data_t *kfree_data = &pHalData->kfree_data;
 
-	if ((Adapter->registrypriv.kfree_config == 1) || !AutoloadFail) {
+	if ((Adapter->registrypriv.RegRfKFreeEnable == 1) || !AutoloadFail) {
 		kfree_data->bb_gain[BB_GAIN_2G][RF_PATH_A]
 			= KFREE_BB_GAIN_2G_TX_OFFSET(EFUSE_Read1Byte(Adapter, PPG_BB_GAIN_2G_TXA_OFFSET_8188F) & PPG_BB_GAIN_2G_TX_OFFSET_MASK);
 		kfree_data->thermal
@@ -4552,7 +4520,7 @@ void Hal_EfuseParseKFreeData_8188F(
 
 	}
 
-	if (Adapter->registrypriv.kfree_config == 1) {
+	if (Adapter->registrypriv.RegRfKFreeEnable == 1) {
 			kfree_data->flag |= KFREE_FLAG_ON;
 			kfree_data->flag |= KFREE_FLAG_THERMAL_K_ON;
 	}
@@ -4561,9 +4529,9 @@ void Hal_EfuseParseKFreeData_8188F(
 		pHalData->EEPROMThermalMeter += kfree_data->thermal;
 
 	DBG_871X("kfree flag:%u\n", kfree_data->flag);
-	if (Adapter->registrypriv.kfree_config == 1 || kfree_data->flag & KFREE_FLAG_ON)
+	if (Adapter->registrypriv.RegRfKFreeEnable == 1 || kfree_data->flag & KFREE_FLAG_ON)
 		DBG_871X("bb_gain:%d\n", kfree_data->bb_gain[BB_GAIN_2G][RF_PATH_A]);
-	if (Adapter->registrypriv.kfree_config == 1 || kfree_data->flag & KFREE_FLAG_THERMAL_K_ON)
+	if (Adapter->registrypriv.RegRfKFreeEnable == 1 || kfree_data->flag & KFREE_FLAG_THERMAL_K_ON)
 		DBG_871X("thermal:%d\n", kfree_data->thermal);
 
 #endif /*CONFIG_RF_GAIN_OFFSET */
@@ -4996,10 +4964,10 @@ static void hw_var_set_monitor(PADAPTER Adapter, u8 variable, u8 *val)
 		/* Receive all type */
 		rcr_bits = RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_APWRMGT | RCR_ADF | RCR_ACF | RCR_AMF | RCR_APP_PHYST_RXFF;
 
-#if 0
 		/* Append FCS */
 		rcr_bits |= RCR_APPFCS;
 
+#if 0
 		/*
 		   CRC and ICV packet will drop in recvbuf2recvframe()
 		   We no turn on it.
@@ -5503,17 +5471,27 @@ static void hw_var_set_mlme_sitesurvey(PADAPTER padapter, u8 variable, u8 *val)
 	struct mlme_priv *pmlmepriv;
 	u8 ap_num;
 
-	rtw_dev_iface_status(padapter, NULL, NULL, NULL, &ap_num, NULL);
+#ifdef CONFIG_CONCURRENT_MODE
+	u32 buddy_reg_bcn_ctl;
+#endif
 
 	pHalData = GET_HAL_DATA(padapter);
 	pmlmepriv = &padapter->mlmepriv;
 
 #ifdef CONFIG_CONCURRENT_MODE
-	if (padapter->iface_type == IFACE_PORT1)
+
+	if (padapter->iface_type == IFACE_PORT1) {
 		reg_bcn_ctl = REG_BCN_CTRL_1;
-	else
-#endif
+		buddy_reg_bcn_ctl = REG_BCN_CTRL;
+	} else {
 		reg_bcn_ctl = REG_BCN_CTRL;
+		buddy_reg_bcn_ctl = REG_BCN_CTRL_1;
+	}
+#else
+	reg_bcn_ctl = REG_BCN_CTRL;
+#endif
+
+	rtw_dev_iface_status(padapter, NULL, NULL, NULL, &ap_num, NULL);
 
 #ifdef CONFIG_FIND_BEST_CHANNEL
 	rcr_clear_bit = (RCR_CBSSID_BCN | RCR_CBSSID_DATA);
@@ -5545,17 +5523,32 @@ static void hw_var_set_mlme_sitesurvey(PADAPTER padapter, u8 variable, u8 *val)
 
 	if (*((u8 *)val)) {
 		/* under sitesurvey */
-		value_rcr &= ~(rcr_clear_bit);
-		rtw_write32(padapter, REG_RCR, value_rcr);
+	     /*
+		* 1. configure REG_RXFLTMAP2
+		* 2. disable TSF update &  buddy TSF update to avoid updating wrong TSF due to clear RCR_CBSSID_BCN
+		* 3. config RCR to receive different BSSID BCN or probe rsp
+		*/
 
 		rtw_write16(padapter, REG_RXFLTMAP2, value_rxfltmap2);
 
-		if (check_fwstate(pmlmepriv, WIFI_STATION_STATE | WIFI_ADHOC_STATE | WIFI_ADHOC_MASTER_STATE)) {
+		if (rtw_linked_check(padapter) &&
+			check_fwstate(pmlmepriv, WIFI_AP_STATE) != _TRUE) {
 			/* disable update TSF */
-			val8 = rtw_read8(padapter, reg_bcn_ctl);
-			val8 |= DIS_TSF_UDT;
-			rtw_write8(padapter, reg_bcn_ctl, val8);
+			rtw_write8(padapter, reg_bcn_ctl, rtw_read8(padapter, reg_bcn_ctl)|DIS_TSF_UDT);
+			padapter->mlmeextpriv.en_hw_update_tsf = _FALSE;
 		}
+
+#ifdef CONFIG_CONCURRENT_MODE
+		if (rtw_linked_check(padapter->pbuddy_adapter) &&
+			check_fwstate(&padapter->pbuddy_adapter->mlmepriv, WIFI_AP_STATE) != _TRUE) {
+			/* disable update buddy TSF to avoid updating wrong TSF due to clear RCR_CBSSID_BCN */
+			rtw_write8(padapter->pbuddy_adapter, buddy_reg_bcn_ctl,
+				rtw_read8(padapter->pbuddy_adapter, buddy_reg_bcn_ctl)|DIS_TSF_UDT);
+			padapter->pbuddy_adapter->mlmeextpriv.en_hw_update_tsf = _FALSE;
+		}
+#endif
+		value_rcr &= ~(rcr_clear_bit);
+		rtw_write32(padapter, REG_RCR, value_rcr);
 
 		/* Save orignal RRSR setting. */
 		pHalData->RegRRSR = rtw_read16(padapter, REG_RRSR);
@@ -5563,6 +5556,13 @@ static void hw_var_set_mlme_sitesurvey(PADAPTER padapter, u8 variable, u8 *val)
 		if (ap_num)
 			StopTxBeacon(padapter);
 	} else {
+	     /*
+		* 1. enable rx data frame
+		* 2. config RCR not to receive different BSSID BCN or probe rsp
+		* 3. doesn't enable TSF update &  buddy TSF right now to avoid HW conflict
+		*	 so, we enable TSF update when rx first BCN after sitesurvey done
+		*/
+
 		/* sitesurvey done */
 		if (check_fwstate(pmlmepriv, (_FW_LINKED | WIFI_AP_STATE))
 #ifdef CONFIG_CONCURRENT_MODE
@@ -5573,15 +5573,19 @@ static void hw_var_set_mlme_sitesurvey(PADAPTER padapter, u8 variable, u8 *val)
 			rtw_write16(padapter, REG_RXFLTMAP2, 0xFFFF);
 		}
 
-		if (check_fwstate(pmlmepriv, WIFI_STATION_STATE | WIFI_ADHOC_STATE | WIFI_ADHOC_MASTER_STATE)) {
-			/* enable update TSF */
-			val8 = rtw_read8(padapter, reg_bcn_ctl);
-			val8 &= ~DIS_TSF_UDT;
-			rtw_write8(padapter, reg_bcn_ctl, val8);
-		}
-
 		value_rcr |= rcr_clear_bit;
 		rtw_write32(padapter, REG_RCR, value_rcr);
+
+		if (rtw_linked_check(padapter) &&
+			check_fwstate(pmlmepriv, WIFI_AP_STATE) != _TRUE)
+			padapter->mlmeextpriv.en_hw_update_tsf = _TRUE;
+
+#ifdef CONFIG_CONCURRENT_MODE
+		if (rtw_linked_check(padapter->pbuddy_adapter) &&
+			check_fwstate(&padapter->pbuddy_adapter->mlmepriv, WIFI_AP_STATE) != _TRUE)
+			/* disable update buddy TSF to avoid updating wrong TSF due to clear RCR_CBSSID_BCN */
+			padapter->pbuddy_adapter->mlmeextpriv.en_hw_update_tsf = _TRUE;
+#endif
 
 		/* Restore orignal RRSR setting. */
 		rtw_write16(padapter, REG_RRSR, pHalData->RegRRSR);
@@ -5727,6 +5731,41 @@ static void hw_var_set_mlme_join(PADAPTER padapter, u8 variable, u8 *val)
 #endif /* !CONFIG_CONCURRENT_MODE */
 }
 
+static void hw_var_set_hw_update_tsf(PADAPTER padapter)
+{
+
+	u16 reg_bcn_ctl;
+	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
+	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
+
+#ifdef CONFIG_CONCURRENT_MODE
+	if (padapter->iface_type == IFACE_PORT1)
+		reg_bcn_ctl = REG_BCN_CTRL_1;
+	else
+		reg_bcn_ctl = REG_BCN_CTRL;
+#else
+	reg_bcn_ctl = REG_BCN_CTRL;
+#endif
+
+	if (!pmlmeext->en_hw_update_tsf)
+		return;
+
+	/* check REG_RCR bit is set */
+	if (!(rtw_read32(padapter, REG_RCR) & RCR_CBSSID_BCN)) {
+		pmlmeext->en_hw_update_tsf = _FALSE;
+		return;
+	}
+
+
+	/* enable hw update tsf function for non-AP */
+	if (rtw_linked_check(padapter) &&
+		check_fwstate(pmlmepriv, WIFI_AP_STATE) != _TRUE)
+		/* enable update buddy TSF */
+		rtw_write8(padapter, reg_bcn_ctl, rtw_read8(padapter, reg_bcn_ctl)&(~DIS_TSF_UDT));
+
+	pmlmeext->en_hw_update_tsf = _FALSE;
+}
+
 void CCX_FwC2HTxRpt_8188f(PADAPTER padapter, u8 *pdata, u8 len)
 {
 	u8 seq_no;
@@ -5843,29 +5882,6 @@ s32 c2h_handler_8188f(PADAPTER padapter, u8 *buf)
 	}
 
 	switch (pC2hEvent->id) {
-	case C2H_AP_RPT_RSP: {
-		/*YJ,TODO,130407 */
-#if 0
-		u4Byte c2h_ap_keeplink = _TRUE;
-
-		if (c2hBuf[2] == 0 && c2hBuf[3] == 0)
-			c2h_ap_keeplink = _FALSE;
-		else
-			c2h_ap_keeplink = _TRUE;
-
-		if (_TRUE == pmlmeext->try_ap_c2h_wait) {
-			if (_FALSE == c2h_ap_keeplink) {
-				pmlmeext->try_ap_c2h_wait = _FALSE;
-				RT_TRACE(_module_hal_init_c_, _drv_err_, ("fw tell us link is off\n"));
-				receive_disconnect(padapter, pmlmeinfo->network.MacAddress , 65535);
-			} else
-				RT_TRACE(_module_hal_init_c_, _drv_err_, ("fw tell us link is on\n"));
-		} else
-			RT_TRACE(_module_hal_init_c_, _drv_err_, ("we don't need this C2H\n"));
-		pmlmeext->check_ap_processing = _FALSE;
-#endif
-	}
-	break;
 	case C2H_DBG: {
 		RT_TRACE(_module_hal_init_c_, _drv_info_, ("c2h_handler_8188f: %s\n", pC2hEvent->payload));
 	}
@@ -5876,34 +5892,15 @@ s32 c2h_handler_8188f(PADAPTER padapter, u8 *buf)
 		break;
 
 #ifdef CONFIG_BT_COEXIST
-#ifdef CONFIG_PCI_HCI
-	case C2H_BT_RSSI:
-		/*fwc2h_ODM(padapter, tmpBuf, &C2hEvent); */
-		/*BT_FwC2hBtRssi(padapter, pC2hEvent->payload); */
-		break;
-#endif
-#endif
-
-	case C2H_EXT_RA_RPT:
-		/*C2HExtRaRptHandler(padapter, pC2hEvent->payload, C2hEvent.CmdLen); */
-		break;
-
-	case C2H_HW_INFO_EXCH:
-		RT_TRACE(_module_hal_init_c_, _drv_info_, ("[BT], C2H_HW_INFO_EXCH\n"));
-		for (index = 0; index < pC2hEvent->plen; index++)
-			RT_TRACE(_module_hal_init_c_, _drv_info_, ("[BT], tmpBuf[%d]=0x%x\n", index, pC2hEvent->payload[index]));
-		break;
-
-#ifdef CONFIG_BT_COEXIST
-	case C2H_8188F_BT_INFO:
+	case C2H_BT_INFO:
 		rtw_btcoex_BtInfoNotify(padapter, pC2hEvent->plen, pC2hEvent->payload);
 		break;
 #endif
 
 /*
 #ifdef CONFIG_MP_INCLUDED
-	case C2H_8188F_BT_MP_INFO:
-		DBG_8192C(" %s, C2H_8188F_BT_MP_INFO pC2hEvent->plen=%d\n", __func__, pC2hEvent->plen);
+	case C2H_BT_MP_INFO:
+		DBG_8192C(" %s, C2H_BT_MP_INFO pC2hEvent->plen=%d\n", __func__, pC2hEvent->plen);
 		MPTBT_FwC2hBtMpCtrl(padapter, pC2hEvent->payload, pC2hEvent->plen);
 		break;
 #endif
@@ -5926,6 +5923,7 @@ static void process_c2h_event(PADAPTER padapter, PC2H_EVT_HDR pC2hEvent, u8 *c2h
 	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(padapter);
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
+	PDM_ODM_T			pDM_Odm = &pHalData->odmpriv;
 
 	if (c2hBuf == NULL) {
 		DBG_8192C("%s c2hbuff is NULL\n", __func__);
@@ -5933,80 +5931,35 @@ static void process_c2h_event(PADAPTER padapter, PC2H_EVT_HDR pC2hEvent, u8 *c2h
 	}
 
 	switch (pC2hEvent->CmdID) {
-	case C2H_AP_RPT_RSP:
-#if 0
-	{
-
-		u4Byte c2h_ap_keeplink = _TRUE;
-
-		if (c2hBuf[2] == 0 && c2hBuf[3] == 0)
-			c2h_ap_keeplink = _FALSE;
-		else
-			c2h_ap_keeplink = _TRUE;
-
-		if (_TRUE == pmlmeext->try_ap_c2h_wait) {
-			if (_FALSE == c2h_ap_keeplink) {
-				pmlmeext->try_ap_c2h_wait = _FALSE;
-				RT_TRACE(_module_hal_init_c_, _drv_err_, ("fw tell us link is off\n"));
-				receive_disconnect(padapter, pmlmeinfo->network.MacAddress , 65535);
-			} else
-				RT_TRACE(_module_hal_init_c_, _drv_err_, ("fw tell us link is on\n"));
-		} else
-			RT_TRACE(_module_hal_init_c_, _drv_err_, ("we don't need this C2H\n"));
-		pmlmeext->check_ap_processing = _FALSE;
-	}
-#endif
-	break;
-	case C2H_DBG: {
-		RT_TRACE(_module_hal_init_c_, _drv_info_, ("C2HCommandHandler: %s\n", c2hBuf));
-	}
-	break;
-
 	case C2H_CCX_TX_RPT:
 		CCX_FwC2HTxRpt_8188f(padapter, c2hBuf, pC2hEvent->CmdLen);
 		break;
 
 #ifdef CONFIG_BT_COEXIST
-#ifdef CONFIG_PCI_HCI
-	case C2H_BT_RSSI:
-		/*fwc2h_ODM(padapter, tmpBuf, &C2hEvent); */
-		/*BT_FwC2hBtRssi(padapter, c2hBuf); */
-		break;
-#endif
-#endif
-
-	case C2H_EXT_RA_RPT:
-		/*C2HExtRaRptHandler(padapter, tmpBuf, C2hEvent.CmdLen); */
-		break;
-
-	case C2H_HW_INFO_EXCH:
-		RT_TRACE(_module_hal_init_c_, _drv_info_, ("[BT], C2H_HW_INFO_EXCH\n"));
-		for (index = 0; index < pC2hEvent->CmdLen; index++)
-			RT_TRACE(_module_hal_init_c_, _drv_info_, ("[BT], tmpBuf[%d]=0x%x\n", index, c2hBuf[index]));
-		break;
-
-#ifdef CONFIG_BT_COEXIST
-	case C2H_8188F_BT_INFO:
+	case C2H_BT_INFO:
 		rtw_btcoex_BtInfoNotify(padapter, pC2hEvent->CmdLen, c2hBuf);
 		break;
 #endif
 
 /*
 #ifdef CONFIG_MP_INCLUDED
-	case C2H_8188F_BT_MP_INFO:
+	case C2H_BT_MP_INFO:
 		MPTBT_FwC2hBtMpCtrl(padapter, c2hBuf, pC2hEvent->CmdLen);
 		break;
 #endif
 */
-
 #ifdef CONFIG_FW_C2H_DEBUG
-	case C2H_8188F_FW_DEBUG:
+	case C2H_EXTEND:
 		Debug_FwC2H_8188f(padapter, c2hBuf, pC2hEvent->CmdLen);
-		break;
+	break;
 #endif /* CONFIG_FW_C2H_DEBUG */
 
 	default:
+		if (!(phydm_c2H_content_parsing(pDM_Odm, pC2hEvent->CmdID, pC2hEvent->CmdLen, c2hBuf))) 
+			RT_TRACE(_module_hal_init_c_, _drv_info_, ("%s: [WARNING] unknown C2H(0x%02x)\n", __func__, c2hCmdId));
+		
 		break;
+		
 	}
 
 #ifndef CONFIG_C2H_PACKET_EN
@@ -6065,7 +6018,7 @@ void rtl8188f_c2h_packet_handler(PADAPTER padapter, u8 *pbuf, u16 length)
 	switch (C2hEvent.CmdID) {
 	case C2H_CCX_TX_RPT:
 #ifdef CONFIG_FW_C2H_DEBUG
-	case C2H_8188F_FW_DEBUG:
+	case C2H_EXTEND:
 #endif /* CONFIG_FW_C2H_DEBUG */
 		process_c2h_event(padapter, &C2hEvent, pdata);
 		break;
@@ -6499,20 +6452,22 @@ void SetHwReg8188F(PADAPTER padapter, u8 variable, u8 *val)
 		rtw_write32(padapter, REG_RCR, rtw_read32(padapter, REG_RCR) | (RCR_CBSSID_DATA));
 		break;
 #endif /*CONFIG_TDLS */
-#ifdef CONFIG_SW_ANTENNA_DIVERSITY
-	case HW_VAR_ANTENNA_DIVERSITY_LINK:
-		/*SwAntDivRestAfterLink8192C(padapter); */
-		ODM_SwAntDivRestAfterLink(&pHalData->odmpriv);
-		break;
-
-	case HW_VAR_ANTENNA_DIVERSITY_SELECT: {
-		u8 Optimum_antenna = *val;
-
-		/*DBG_8192C("==> HW_VAR_ANTENNA_DIVERSITY_SELECT , Ant_(%s)\n",(Optimum_antenna==2)?"A":"B"); */
-
-		/*PHY_SetBBReg(padapter, rFPGA0_XA_RFInterfaceOE, 0x300, Optimum_antenna); */
-		ODM_SetAntenna(&pHalData->odmpriv, Optimum_antenna);
-	}
+		
+#ifdef CONFIG_ANTENNA_DIVERSITY
+	case HW_VAR_ANTENNA_DIVERSITY_SELECT: 
+		{
+			u8	Optimum_antenna = (*(u8 *)val);
+			u8	Ant;
+			/*switch antenna to Optimum_antenna*/
+			/*DBG_8192C("==> HW_VAR_ANTENNA_DIVERSITY_SELECT , Ant_(%s)\n",(Optimum_antenna==2)?"A":"B");*/
+			if (pHalData->CurAntenna !=  Optimum_antenna) {					
+				Ant = (Optimum_antenna == 2) ? MAIN_ANT : AUX_ANT;
+				ODM_UpdateRxIdleAnt(&pHalData->odmpriv, Ant);
+					
+				pHalData->CurAntenna = Optimum_antenna;
+				/*DBG_8192C("==> HW_VAR_ANTENNA_DIVERSITY_SELECT , Ant_(%s)\n",(Optimum_antenna==2)?"A":"B");*/
+			}
+		}
 	break;
 #endif
 
@@ -6642,15 +6597,6 @@ void SetHwReg8188F(PADAPTER padapter, u8 variable, u8 *val)
 		break;
 #endif
 
-	case HW_VAR_H2C_MEDIA_STATUS_RPT: {
-		u16	mstatus_rpt = (*(u16 *)val);
-		u8	mstatus, macId;
-
-		mstatus = (u8)(mstatus_rpt & 0xFF);
-		macId = (u8)(mstatus_rpt >> 8);
-		rtl8188f_set_FwMediaStatusRpt_cmd(padapter , mstatus, macId);
-	}
-	break;
 	case HW_VAR_BCN_VALID:
 #ifdef CONFIG_CONCURRENT_MODE
 		if (padapter->iface_type == IFACE_PORT1) {
@@ -6685,7 +6631,10 @@ void SetHwReg8188F(PADAPTER padapter, u8 variable, u8 *val)
 		break;
 
 	case HW_VAR_DO_IQK:
-		pHalData->bNeedIQK = _TRUE;
+		if (*val)
+			pHalData->bNeedIQK = _TRUE;
+		else
+			pHalData->bNeedIQK = _FALSE;
 		break;
 
 	case HW_VAR_DL_RSVD_PAGE:
@@ -6785,6 +6734,9 @@ void SetHwReg8188F(PADAPTER padapter, u8 variable, u8 *val)
 	}
 	break;
 #endif
+	case HW_VAR_EN_HW_UPDATE_TSF:
+		hw_var_set_hw_update_tsf(padapter);
+		break;
 	default:
 		SetHwReg(padapter, variable, val);
 		break;
@@ -7038,6 +6990,9 @@ u8 GetHalDefVar8188F(PADAPTER padapter, HAL_DEF_VARIABLE variable, void *pval)
 		/* The experiment was done on SDIO interface */
 		/* coding by Lucas@20130730 */
 		*(HT_CAP_AMPDU_FACTOR *)pval = MAX_AMPDU_FACTOR_16K;
+		break;
+	case HW_VAR_BEST_AMPDU_DENSITY:
+		*((u32 *)pval) = AMPDU_DENSITY_VALUE_7;
 		break;
 	case HAL_DEF_TX_LDPC:
 	case HAL_DEF_RX_LDPC:

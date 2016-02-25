@@ -788,7 +788,7 @@ odm_TXPowerTrackingInit(
 	)
 {
 	PDM_ODM_T		pDM_Odm = (PDM_ODM_T)pDM_VOID;
-#if (DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
+#if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 	if(!(pDM_Odm->SupportICType & (ODM_RTL8814A|ODM_IC_11N_SERIES)))
 		return;
 #endif
@@ -849,7 +849,7 @@ odm_TXPowerTrackingThermalMeterInit(
 	
 	}	
 	#endif//endif (CONFIG_RTL8188E==1)	
-#elif (DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
+#elif (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 
 	#ifdef RTL8188E_SUPPORT
 	{
@@ -923,10 +923,8 @@ ODM_TXPowerTrackingCheck(
 		case	ODM_AP:
 			odm_TXPowerTrackingCheckAP(pDM_Odm);		
 			break;		
-
-		case	ODM_ADSL:
-			//odm_DIGAP(pDM_Odm);
-			break;	
+		default:
+			break;
 	}
 
 }
@@ -939,16 +937,7 @@ odm_TXPowerTrackingCheckCE(
 #if (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	PDM_ODM_T		pDM_Odm = (PDM_ODM_T)pDM_VOID;
 	PADAPTER	Adapter = pDM_Odm->Adapter;
-	#if( (RTL8192C_SUPPORT==1) ||  (RTL8723A_SUPPORT==1) )
-	rtl8192c_odm_CheckTXPowerTracking(Adapter);
-	#endif
 
-	#if (RTL8192D_SUPPORT==1) 
-	#if (RTL8192D_EASY_SMART_CONCURRENT == 1)
-	if(!Adapter->bSlaveOfDMSP)
-	#endif
-		rtl8192d_odm_CheckTXPowerTracking(Adapter);
-	#endif
 	#if(RTL8188E_SUPPORT==1)
 
 	//if(!pMgntInfo->bTXPowerTracking /*|| (!pdmpriv->TxPowerTrackControl && pdmpriv->bAPKdone)*/)
@@ -990,9 +979,6 @@ odm_TXPowerTrackingCheckMP(
 	if (ODM_CheckPowerStatus(Adapter) == FALSE)
 		return;
 
-	if(IS_HARDWARE_TYPE_8723A(Adapter))
-		return;
-
 	if(!Adapter->bSlaveOfDMSP || Adapter->DualMacSmartConcurrent == FALSE)
 		odm_TXPowerTrackingThermalMeterCheck(Adapter);
 #endif
@@ -1009,19 +995,9 @@ odm_TXPowerTrackingCheckAP(
 #if (DM_ODM_SUPPORT_TYPE == ODM_AP)
 	prtl8192cd_priv	priv		= pDM_Odm->priv;
 
-#if ((RTL8188E_SUPPORT==1)||(RTL8192E_SUPPORT==1) ||(RTL8812E_SUPPORT==1)||(RTL8881A_SUPPORT==1)||(RTL8814A_SUPPORT==1))	
+#if ((RTL8188E_SUPPORT == 1) || (RTL8192E_SUPPORT == 1) || (RTL8812A_SUPPORT == 1) || (RTL8881A_SUPPORT == 1) || (RTL8814A_SUPPORT == 1))	
 	if (pDM_Odm->SupportICType & (ODM_RTL8188E|ODM_RTL8192E|ODM_RTL8812|ODM_RTL8881A|ODM_RTL8814A))
 		ODM_TXPowerTrackingCallback_ThermalMeter(pDM_Odm);
-	else
-#endif
-#if (RTL8192D_SUPPORT==1) 
-	if (pDM_Odm->SupportICType==ODM_RTL8192D)
-		tx_power_tracking_92D(priv);
-	else 
-#endif
-#if (RTL8192C_SUPPORT==1) 			
-	if (pDM_Odm->SupportICType==ODM_RTL8192C)
-		tx_power_tracking(priv);
 	else
 #endif
 	{
@@ -1051,9 +1027,7 @@ odm_TXPowerTrackingThermalMeterCheck(
 
 	if(!TM_Trigger)		//at least delay 1 sec
 	{
-		if(IS_HARDWARE_TYPE_8192D(Adapter))
-			PHY_SetRFReg(Adapter, RF_PATH_A, RF_T_METER_92D, BIT17 | BIT16, 0x03);
-		else if(IS_HARDWARE_TYPE_8188E(Adapter) || IS_HARDWARE_TYPE_8812(Adapter))
+		if (IS_HARDWARE_TYPE_8188E(Adapter) || IS_HARDWARE_TYPE_8812(Adapter))
 			PHY_SetRFReg(Adapter, RF_PATH_A, RF_T_METER_88E, BIT17 | BIT16, 0x03);
 		else
 			PHY_SetRFReg(Adapter, RF_PATH_A, RF_T_METER, bRFRegOffsetMask, 0x60);

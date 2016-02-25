@@ -53,6 +53,7 @@
 	#endif //!CONFIG_PLATFORM_INTEL_BYT
 	//#define CONFIG_DEBUG_CFG80211
 	#define CONFIG_SET_SCAN_DENY_TIMER
+	/*#define SUPPLICANT_RTK_VERSION_LOWER_THAN_JB42*/ /* wpa_supplicant realtek version <= jb42 will be defined this */
 #endif
 
 #define CONFIG_AP_MODE
@@ -75,7 +76,6 @@
 
 	//#define CONFIG_DBG_P2P
 	#define CONFIG_P2P_PS
-	//#define CONFIG_P2P_IPS
 	#define CONFIG_P2P_OP_CHK_SOCIAL_CH
 	#define CONFIG_CFG80211_ONECHANNEL_UNDER_CONCURRENT  //replace CONFIG_P2P_CHK_INVITE_CH_LIST flag
 	#define CONFIG_P2P_INVITE_IOT
@@ -138,7 +138,7 @@
 #define CONFIG_TX_AGGREGATION
 #define CONFIG_SDIO_RX_COPY
 #define CONFIG_XMIT_THREAD_MODE
-#define CONFIG_SDIO_TX_ENABLE_AVAL_INT
+//#define CONFIG_SDIO_TX_ENABLE_AVAL_INT
 
 
 /*
@@ -188,9 +188,7 @@
 
 	#ifdef CONFIG_LPS
 		#define CONFIG_CHECK_LEAVE_LPS
-		#ifndef CONFIG_PLATFORM_INTEL_BYT
-			#define CONFIG_LPS_SLOW_TRANSITION
-		#endif
+		//#define CONFIG_LPS_SLOW_TRANSITION
 	#endif
 
 	#ifdef CONFIG_LPS_LCLK
@@ -222,11 +220,6 @@
 	#endif
 #endif
 
-#ifdef CONFIG_ANTENNA_DIVERSITY
-#define CONFIG_HW_ANTENNA_DIVERSITY
-#endif
-
-
 /*
  * Debug Related Config
  */
@@ -247,3 +240,4 @@
 //#define DBG_CHECK_FW_PS_STATE
 //#define DBG_CHECK_FW_PS_STATE_H2C
 //#define CONFIG_FW_C2H_DEBUG 
+

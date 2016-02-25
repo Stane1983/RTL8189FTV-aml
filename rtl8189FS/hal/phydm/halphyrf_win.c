@@ -157,7 +157,7 @@ ODM_TXPowerTrackingCallback_ThermalMeter(
 	PODM_RF_CAL_T	pRFCalibrateInfo = &(pDM_Odm->RFCalibrateInfo);
 	
 	u1Byte			ThermalValue = 0, delta, delta_LCK, delta_IQK, p = 0, i = 0, pathName = 0;
-	s1Byte 			diff_DPK[2] = {0};
+	s1Byte			diff_DPK[4] = {0};
 	u1Byte			ThermalValue_AVG_count = 0;
 	u4Byte			ThermalValue_AVG = 0;	
 
@@ -261,8 +261,9 @@ ODM_TXPowerTrackingCallback_ThermalMeter(
 
 	//4 6. If necessary, do LCK.	
 
-	if(pRFCalibrateInfo->ThermalValue_LCK == 0xff)	//no PG , do LCK at initial status
-	{
+	if (!(pDM_Odm->SupportICType & ODM_RTL8821)) {
+		/*no PG , do LCK at initial status*/
+		if (pRFCalibrateInfo->ThermalValue_LCK == 0xff) {
 		ODM_RT_TRACE(pDM_Odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD, ("no PG, do LCK\n"));
 		pRFCalibrateInfo->ThermalValue_LCK = ThermalValue;
 		if(c.PHY_LCCalibrate)
@@ -272,13 +273,13 @@ ODM_TXPowerTrackingCallback_ThermalMeter(
 
 	ODM_RT_TRACE(pDM_Odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD, ("(delta, delta_LCK, delta_IQK) = (%d, %d, %d)\n", delta, delta_LCK, delta_IQK));
 	
-	
-	if ((delta_LCK >= c.Threshold_IQK)) // Delta temperature is equal to or larger than 20 centigrade.
-	{
+		 /* Delta temperature is equal to or larger than 20 centigrade.*/
+		if (delta_LCK >= c.Threshold_IQK) {
 		ODM_RT_TRACE(pDM_Odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD, ("delta_LCK(%d) >= Threshold_IQK(%d)\n", delta_LCK, c.Threshold_IQK));
 		pRFCalibrateInfo->ThermalValue_LCK = ThermalValue;
 		if(c.PHY_LCCalibrate)
 			(*c.PHY_LCCalibrate)(pDM_Odm);
+	}
 	}
 
 	//3 7. If necessary, move the index of swing table to adjust Tx power.	
@@ -614,35 +615,7 @@ ODM_ResetIQKResult(
 	IN PDM_ODM_T	pDM_Odm 
 )
 {
-	u1Byte		i;
-	PODM_RF_CAL_T	pRFCalibrateInfo = &(pDM_Odm->RFCalibrateInfo);
-#if (DM_ODM_SUPPORT_TYPE == ODM_WIN || DM_ODM_SUPPORT_TYPE == ODM_CE)
-	PADAPTER	Adapter = pDM_Odm->Adapter;
-
-	if (!IS_HARDWARE_TYPE_8192D(Adapter))
-		return;
-#endif
-	ODM_RT_TRACE(pDM_Odm,ODM_COMP_CALIBRATION, ODM_DBG_LOUD,("PHY_ResetIQKResult:: settings regs %d default regs %d\n", sizeof(pRFCalibrateInfo->IQKMatrixRegSetting)/sizeof(IQK_MATRIX_REGS_SETTING), IQK_Matrix_Settings_NUM));
-	//0xe94, 0xe9c, 0xea4, 0xeac, 0xeb4, 0xebc, 0xec4, 0xecc
-
-	for(i = 0; i < IQK_Matrix_Settings_NUM; i++)
-	{
-		{
-			pRFCalibrateInfo->IQKMatrixRegSetting[i].Value[0][0] = 
-				pRFCalibrateInfo->IQKMatrixRegSetting[i].Value[0][2] = 
-				pRFCalibrateInfo->IQKMatrixRegSetting[i].Value[0][4] = 
-				pRFCalibrateInfo->IQKMatrixRegSetting[i].Value[0][6] = 0x100;
-
-			pRFCalibrateInfo->IQKMatrixRegSetting[i].Value[0][1] = 
-				pRFCalibrateInfo->IQKMatrixRegSetting[i].Value[0][3] = 
-				pRFCalibrateInfo->IQKMatrixRegSetting[i].Value[0][5] = 
-				pRFCalibrateInfo->IQKMatrixRegSetting[i].Value[0][7] = 0x0;
-
-			pRFCalibrateInfo->IQKMatrixRegSetting[i].bIQKDone = FALSE;
-
-		}
-	}
-
+	return;
 }
 #if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
 u1Byte ODM_GetRightChnlPlaceforIQK(u1Byte chnl)

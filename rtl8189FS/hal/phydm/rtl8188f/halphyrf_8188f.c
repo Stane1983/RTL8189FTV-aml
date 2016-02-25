@@ -395,13 +395,25 @@ ODM_TxPwrTrackSetPwr_8188F(
 				pRFCalibrateInfo->Modify_TxAGC_Flag_PathA = TRUE;
 
 				//Set TxAGC Page C{};
-				PHY_SetTxPowerIndexByRateSection(Adapter, ODM_RF_PATH_A, pHalData->CurrentChannel, OFDM);
-				PHY_SetTxPowerIndexByRateSection(Adapter, ODM_RF_PATH_A, pHalData->CurrentChannel, HT_MCS0_MCS7);
-
+				
 				ODM_RT_TRACE(pDM_Odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,
 							 ("******Path_A Over BBSwing Limit , PwrTrackingLimit = %d , Remnant TxAGC Value = %d\n",
 							  PwrTrackingLimit_OFDM, pRFCalibrateInfo->Remnant_OFDMSwingIdx[RFPath]));
-				}
+				} else if (Final_OFDM_Swing_Index < pRFCalibrateInfo->DefaultOfdmIndex) {
+					pRFCalibrateInfo->Remnant_OFDMSwingIdx[RFPath] = Final_OFDM_Swing_Index - pRFCalibrateInfo->DefaultOfdmIndex; 
+					setIqkMatrix_8188F(pDM_Odm, pRFCalibrateInfo->DefaultOfdmIndex, ODM_RF_PATH_A, 
+						 pDM_Odm->RFCalibrateInfo.IQKMatrixRegSetting[ChannelMappedIndex].Value[0][0],
+						 pDM_Odm->RFCalibrateInfo.IQKMatrixRegSetting[ChannelMappedIndex].Value[0][1]);		
+
+					pRFCalibrateInfo->Modify_TxAGC_Flag_PathA = TRUE;
+				/* Set TxAGC Page C{}; */
+
+				ODM_RT_TRACE(pDM_Odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,
+							 ("******Path_A Lower then BBSwing lower bound  28 , Remnant TxAGC Value = %d\n",
+							  pRFCalibrateInfo->Remnant_OFDMSwingIdx[RFPath]));
+			}
+
+			/*
 				else if (Final_OFDM_Swing_Index < 0)
 				{
 					pRFCalibrateInfo->Remnant_OFDMSwingIdx[RFPath] = Final_OFDM_Swing_Index ; 
@@ -411,13 +423,13 @@ ODM_TxPwrTrackSetPwr_8188F(
 
 					pRFCalibrateInfo->Modify_TxAGC_Flag_PathA=TRUE;
 				//Set TxAGC Page C{};
-				PHY_SetTxPowerIndexByRateSection(Adapter, ODM_RF_PATH_A, pHalData->CurrentChannel, OFDM);
-				PHY_SetTxPowerIndexByRateSection(Adapter, ODM_RF_PATH_A, pHalData->CurrentChannel, HT_MCS0_MCS7);
 
 				ODM_RT_TRACE(pDM_Odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,
 							 ("******Path_A Lower then BBSwing lower bound  0 , Remnant TxAGC Value = %d\n",
 							  pRFCalibrateInfo->Remnant_OFDMSwingIdx[RFPath]));
-			} else {
+			}
+			*/
+			else {
 				setIqkMatrix_8188F(pDM_Odm, Final_OFDM_Swing_Index, ODM_RF_PATH_A,
 								   pDM_Odm->RFCalibrateInfo.IQKMatrixRegSetting[ChannelMappedIndex].Value[0][0],
 								   pDM_Odm->RFCalibrateInfo.IQKMatrixRegSetting[ChannelMappedIndex].Value[0][1]);
@@ -552,7 +564,7 @@ ODM_TxPwrTrackSetPwr_8188F(
 					//Set TxAGC Page C{};
 					PHY_SetTxPowerIndexByRateSection(Adapter, ODM_RF_PATH_A, pHalData->CurrentChannel, CCK );
 				}
-				pRFCalibrateInfo->Modify_TxAGC_Value_CCK=pRFCalibrateInfo->Remnant_CCKSwingIdx;
+				pRFCalibrateInfo->Modify_TxAGC_Value_CCK = pRFCalibrateInfo->Remnant_CCKSwingIdx;
 			
 		}
 	} 
@@ -570,16 +582,50 @@ GetDeltaSwingTable_8188F(
 	OUT pu1Byte *TemperatureDOWN_B
 )
 {
-	PDM_ODM_T pDM_Odm = (PDM_ODM_T)pDM_VOID;
-	PADAPTER Adapter = pDM_Odm->Adapter;
-	PODM_RF_CAL_T pRFCalibrateInfo = &(pDM_Odm->RFCalibrateInfo);
-	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(Adapter);
-	u2Byte rate = *(pDM_Odm->pForcedDataRate);
-	u1Byte channel = pHalData->CurrentChannel;
+	PDM_ODM_T			pDM_Odm	= (PDM_ODM_T)pDM_VOID;
+	PADAPTER			Adapter		= pDM_Odm->Adapter;
+	PHAL_DATA_TYPE	pHalData	= GET_HAL_DATA(Adapter);
+	PODM_RF_CAL_T		pRFCalibrateInfo = &(pDM_Odm->RFCalibrateInfo);
+	u1Byte				TxRate			= 0xFF;
+	u1Byte				channel			= pHalData->CurrentChannel;
+
+	if (pDM_Odm->mp_mode == TRUE) {
+		#if (DM_ODM_SUPPORT_TYPE & (ODM_WIN | ODM_CE))
+			#if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
+				#if (MP_DRIVER == 1)
+					PMPT_CONTEXT pMptCtx = &(Adapter->MptCtx);
+						
+					TxRate = MptToMgntRate(pMptCtx->MptRateIndex);
+				#endif
+			#elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
+				PMPT_CONTEXT pMptCtx = &(Adapter->mppriv.MptCtx);
+					
+				TxRate = MptToMgntRate(pMptCtx->MptRateIndex);
+			#endif	
+		#endif
+	} else {
+		u2Byte	rate	 = *(pDM_Odm->pForcedDataRate);
+		
+		if (!rate) { /*auto rate*/
+			if (rate != 0xFF) {
+				#if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
+						TxRate = Adapter->HalFunc.GetHwRateFromMRateHandler(pDM_Odm->TxRate);
+				#elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
+						TxRate = HwRateToMRate(pDM_Odm->TxRate);
+				#endif
+			}
+		} else { /*force rate*/
+			TxRate = (u1Byte)rate;
+		}
+	}
+		
+	ODM_RT_TRACE(pDM_Odm, ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD, ("Power Tracking TxRate=0x%X\n", TxRate));
+
 
 	RT_TRACE(COMP_CMD, DBG_LOUD, ("GetDeltaSwingTable_8188F ====> channel is %d\n", channel));
+	
 	if ( 1 <= channel && channel <= 14) {
-		if (IS_CCK_RATE(rate)) {
+		if (IS_CCK_RATE(TxRate)) {
 			*TemperatureUP_A = pRFCalibrateInfo->DeltaSwingTableIdx_2GCCKA_P;
 			*TemperatureDOWN_A = pRFCalibrateInfo->DeltaSwingTableIdx_2GCCKA_N;
 			*TemperatureUP_B = pRFCalibrateInfo->DeltaSwingTableIdx_2GCCKB_P;
@@ -590,22 +636,7 @@ GetDeltaSwingTable_8188F(
 			*TemperatureUP_B = pRFCalibrateInfo->DeltaSwingTableIdx_2GB_P;
 			*TemperatureDOWN_B = pRFCalibrateInfo->DeltaSwingTableIdx_2GB_N;
 		}
-	} /*else if ( 36 <= channel && channel <= 64) {
-	   *TemperatureUP_A   = pRFCalibrateInfo->DeltaSwingTableIdx_5GA_P[0];
-	   *TemperatureDOWN_A = pRFCalibrateInfo->DeltaSwingTableIdx_5GA_N[0];
-	   *TemperatureUP_B   = pRFCalibrateInfo->DeltaSwingTableIdx_5GB_P[0];
-	   *TemperatureDOWN_B = pRFCalibrateInfo->DeltaSwingTableIdx_5GB_N[0];
-   } else if ( 100 <= channel && channel <= 140) {
-	   *TemperatureUP_A   = pRFCalibrateInfo->DeltaSwingTableIdx_5GA_P[1];
-	   *TemperatureDOWN_A = pRFCalibrateInfo->DeltaSwingTableIdx_5GA_N[1];
-	   *TemperatureUP_B   = pRFCalibrateInfo->DeltaSwingTableIdx_5GB_P[1];
-	   *TemperatureDOWN_B = pRFCalibrateInfo->DeltaSwingTableIdx_5GB_N[1];
-   } else if ( 149 <= channel && channel <= 173) {
-	   *TemperatureUP_A   = pRFCalibrateInfo->DeltaSwingTableIdx_5GA_P[2];
-	   *TemperatureDOWN_A = pRFCalibrateInfo->DeltaSwingTableIdx_5GA_N[2];
-	   *TemperatureUP_B   = pRFCalibrateInfo->DeltaSwingTableIdx_5GB_P[2];
-	   *TemperatureDOWN_B = pRFCalibrateInfo->DeltaSwingTableIdx_5GB_N[2];
-   } */else {
+	} else {
 		*TemperatureUP_A = (pu1Byte)DeltaSwingTableIdx_2GA_P_8188E;
 		*TemperatureDOWN_A = (pu1Byte)DeltaSwingTableIdx_2GA_N_8188E;
 		*TemperatureUP_B = (pu1Byte)DeltaSwingTableIdx_2GA_P_8188E;
@@ -1760,7 +1791,7 @@ phy_IQCalibrate_8188F(
 
 	u4Byte Path_SEL_BB, Path_SEL_RF;
 
-#if (DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
+#if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 	u4Byte retryCount = 2;
 #else
 #if MP_DRIVER
@@ -1775,7 +1806,7 @@ phy_IQCalibrate_8188F(
 
 	//u4Byte bbvalue;
 
-#if (DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
+#if (DM_ODM_SUPPORT_TYPE & (ODM_AP))
 #ifdef MP_TEST
 	if (pDM_Odm->priv->pshare->rf_ft_var.mp_specific)
 		retryCount = 9;

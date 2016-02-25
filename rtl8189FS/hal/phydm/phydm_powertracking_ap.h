@@ -21,7 +21,7 @@
 #ifndef	__PHYDMPOWERTRACKING_H__
 #define    __PHYDMPOWERTRACKING_H__
 
-#define POWRTRACKING_VERSION	"1.0"
+#define POWRTRACKING_VERSION	"1.1"
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_AP)
 #ifdef RTK_AC_SUPPORT
@@ -42,11 +42,9 @@
 #define IQK_MAC_REG_NUM		4
 #define IQK_ADDA_REG_NUM		16
 #define IQK_BB_REG_NUM_MAX	10
-#if (RTL8192D_SUPPORT==1) 
-#define IQK_BB_REG_NUM		10
-#else
+
 #define IQK_BB_REG_NUM		9
-#endif
+
 #define HP_THERMAL_NUM		8
 
 #define AVG_THERMAL_NUM		8
@@ -242,6 +240,11 @@ typedef struct ODM_RF_Calibration_Structure
 	u1Byte 	bDPdone;
 	u1Byte 	bDPPathAOK;
 	u1Byte 	bDPPathBOK;
+
+	/*Add by Yuchen for Kfree Phydm*/
+	u1Byte			RegRfKFreeEnable;	/*for registry*/
+	u1Byte			RfKFreeEnable;		/*for efuse enable check*/
+	
 }ODM_RF_CAL_T,*PODM_RF_CAL_T;
 
 VOID

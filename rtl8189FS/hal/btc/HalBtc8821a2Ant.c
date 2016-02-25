@@ -34,8 +34,8 @@ const char *const GLBtInfoSrc8821a2Ant[]={
 	"BT Info[bt auto report]",
 };
 
-u4Byte	GLCoexVerDate8821a2Ant=20150702;
-u4Byte	GLCoexVer8821a2Ant=0x56;
+u4Byte	GLCoexVerDate8821a2Ant=20150921;
+u4Byte	GLCoexVer8821a2Ant=0x58;
 //modify 20140903v43 a2dpandhid tdmaonoff a2dp glitch _ tdma off 778=3(case1)->778=1(case0)
 //and to improve tp while a2dphid case23->case25 , case123->case125 for asus spec
 //and modify for asus bt WHQL test _ tdma off_ 778=3->1_
@@ -1611,6 +1611,13 @@ halbtc8821a2ant_PsTdma(
 			case 124:
 				halbtc8821a2ant_SetFwPstdma(pBtCoexist, 0xd3, 0x3c, 0x03, 0x70, 0x50);
 				break;
+				//case25/case125 : for lenovo bt pan tp degrade<30% while wifi downlink
+			case 25:
+				halbtc8821a2ant_SetFwPstdma(pBtCoexist, 0xe3, 0x14, 0x03, 0xf1, 0x90);
+				break;
+                        case 26:
+				halbtc8821a2ant_SetFwPstdma(pBtCoexist, 0xe3, 0x30, 0x03, 0xf1, 0x90);
+				break;
 			case 71:
 				//halbtc8821a2ant_SetFwPstdma(pBtCoexist, 0xe3, 0x1a, 0x1a, 0xe1, 0x90);
 
@@ -1654,6 +1661,13 @@ halbtc8821a2ant_PsTdma(
 				break;
 			case 123:
 				halbtc8821a2ant_SetFwPstdma(pBtCoexist, 0xd3, 0x1c, 0x03, 0x70, 0x54);
+				break;
+				//case25/case125 : for lenovo bt pan tp degrade<30% while wifi downlink
+			case 125:
+				halbtc8821a2ant_SetFwPstdma(pBtCoexist, 0xd3, 0x14, 0x03, 0x70, 0x50);
+				break;
+                        case 126:
+				halbtc8821a2ant_SetFwPstdma(pBtCoexist, 0xd3, 0x30, 0x03, 0x70, 0x50);
 				break;
 		}
 	}
@@ -1913,6 +1927,28 @@ halbtc8821a2ant_ActionWifiIdleProcess(
 
 	  	return TRUE;
 	}
+
+        //
+       else if (pCoexSta->bPanExist== TRUE)
+	{
+
+		RT_TRACE(COMP_COEX, DBG_LOUD, ("[BTCoex], Wifi  idle process for BT PAN exist!!\n"));
+		
+		halbtc8821a2ant_DacSwing(pBtCoexist, NORMAL_EXEC, TRUE, 0x6);
+		halbtc8821a2ant_DecBtPwr(pBtCoexist, NORMAL_EXEC, 0);
+
+		// sw all off
+		halbtc8821a2ant_SwMechanism1(pBtCoexist,FALSE,FALSE,FALSE,FALSE);
+		halbtc8821a2ant_SwMechanism2(pBtCoexist,FALSE,FALSE,FALSE,0x18);
+
+		halbtc8821a2ant_CoexTableWithType(pBtCoexist, NORMAL_EXEC, 0);
+
+		halbtc8821a2ant_PowerSaveState(pBtCoexist, BTC_PS_WIFI_NATIVE, 0x0, 0x0);		
+		halbtc8821a2ant_PsTdma(pBtCoexist, NORMAL_EXEC, FALSE, 1);
+
+	  	return TRUE;
+	}
+	
 	else
 	{
 		halbtc8821a2ant_DacSwing(pBtCoexist, NORMAL_EXEC, TRUE, 0x18);
@@ -3304,11 +3340,11 @@ halbtc8821a2ant_ActionPanEdr(
 	if( (btRssiState == BTC_RSSI_STATE_HIGH) ||
 		(btRssiState == BTC_RSSI_STATE_STAY_HIGH) )
 	{
-		halbtc8821a2ant_PsTdma(pBtCoexist, NORMAL_EXEC, TRUE, 1);	
+		halbtc8821a2ant_PsTdma(pBtCoexist, NORMAL_EXEC, TRUE, 26);	
 	}
 	else
 	{
-		halbtc8821a2ant_PsTdma(pBtCoexist, NORMAL_EXEC, TRUE, 5);	
+		halbtc8821a2ant_PsTdma(pBtCoexist, NORMAL_EXEC, TRUE, 26);	
 	}
 	
 	// sw mechanism

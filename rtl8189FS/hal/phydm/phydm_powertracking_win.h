@@ -21,7 +21,7 @@
 #ifndef	__PHYDMPOWERTRACKING_H__
 #define    __PHYDMPOWERTRACKING_H__
 
-#define POWRTRACKING_VERSION	"1.0"
+#define POWRTRACKING_VERSION	"1.1"
 
 #define	DPK_DELTA_MAPPING_NUM	13
 #define	index_mapping_HP_NUM	15	
@@ -41,11 +41,9 @@
 #define	IQK_Matrix_REG_NUM	8
 #define	IQK_MAC_REG_NUM		4
 #define	IQK_ADDA_REG_NUM		16
-#if (RTL8192D_SUPPORT==1) 
-#define	IQK_BB_REG_NUM		10
-#else
+
 #define	IQK_BB_REG_NUM		9
-#endif
+
 
 extern	u4Byte OFDMSwingTable[OFDM_TABLE_SIZE];
 extern	u1Byte CCKSwingTable_Ch1_Ch13[CCK_TABLE_SIZE][8];
@@ -255,7 +253,7 @@ typedef struct ODM_RF_Calibration_Structure
 	u4Byte	TxLOK[2];
 	u4Byte  DpkTxAGC;
 	s4Byte  DpkGain;
-	u4Byte  DpkThermal[2];	
+	u4Byte  DpkThermal[4];	
 
 	s1Byte Modify_TxAGC_Value_OFDM;
 	s1Byte Modify_TxAGC_Value_CCK;

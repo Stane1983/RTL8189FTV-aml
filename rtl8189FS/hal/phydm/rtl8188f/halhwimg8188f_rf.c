@@ -18,7 +18,7 @@
 * 
 ******************************************************************************/
 
-/*Image2HeaderVersion: 2.14*/
+/*Image2HeaderVersion: 2.18*/
 #include "mp_precomp.h"
 #include "../phydm_precomp.h"
 
@@ -187,17 +187,29 @@ u4Byte Array_MP_8188F_RadioA[] = {
 		0x05A, 0x00048000,
 		0x019, 0x000739D0,
 	0x80000400,	0x00000000,	0x40000000,	0x00000000,
-		0x034, 0x0000ADD4,
-		0x034, 0x00009DD1,
+		0x034, 0x0000ADD2,
+		0x034, 0x00009DCF,
 		0x034, 0x00008CF2,
 		0x034, 0x00007CEF,
 		0x034, 0x00006CEC,
 		0x034, 0x00005CE9,
-		0x034, 0x00004CCC,
-		0x034, 0x00003CC9,
-		0x034, 0x00002CC6,
-		0x034, 0x00001C49,
-		0x034, 0x00000C46,
+		0x034, 0x00004CCE,
+		0x034, 0x00003CCB,
+		0x034, 0x00002CC8,
+		0x034, 0x00001C4B,
+		0x034, 0x00000C48,
+	0x91000000,	0x00000000,	0x40000000,	0x00000000,
+		0x034, 0x0000ADD3,
+		0x034, 0x00009DD1,
+		0x034, 0x00008CF4,
+		0x034, 0x00007CF1,
+		0x034, 0x00006CEE,
+		0x034, 0x00005CD3,
+		0x034, 0x00004CD0,
+		0x034, 0x00003CCD,
+		0x034, 0x00002CCA,
+		0x034, 0x00001C4D,
+		0x034, 0x00000C4A,
 	0xA0000000,	0x00000000,
 		0x034, 0x0000ADD6,
 		0x034, 0x00009DD3,
@@ -246,11 +258,11 @@ u4Byte Array_MP_8188F_RadioA[] = {
 		0x0EF, 0x00000000,
 		0x000, 0x00010159,
 		0x018, 0x0000FC07,
-		0x0FE, 0x00000000,
-		0x0FE, 0x00000000,
+		0xFFE, 0x00000000,
+		0xFFE, 0x00000000,
 		0x01F, 0x00080003,
-		0x0FE, 0x00000000,
-		0x0FE, 0x00000000,
+		0xFFE, 0x00000000,
+		0xFFE, 0x00000000,
 		0x01E, 0x00000001,
 		0x01F, 0x00080000,
 		0x000, 0x00033D95,
@@ -286,8 +298,7 @@ ODM_ReadAndConfig_MP_8188F_RadioA(
 				} else if (cCond == COND_ELSE) { /*else*/
 					bMatched = bSkipped?FALSE:TRUE;
 					ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_LOUD, ("ELSE\n"));
-				}
-				else {/*if , else if*/
+				} else {/*if , else if*/
 					pre_v1 = v1;
 					pre_v2 = v2;
 					ODM_RT_TRACE(pDM_Odm, ODM_COMP_INIT, ODM_DBG_LOUD, ("IF or ELSE IF\n"));
@@ -315,7 +326,7 @@ ODM_ReadAndConfig_MP_8188F_RadioA(
 u4Byte
 ODM_GetVersion_MP_8188F_RadioA(void)
 {
-	   return 19;
+	   return 25;
 }
 
 /******************************************************************************
@@ -408,12 +419,12 @@ u1Byte gDeltaSwingTableIdx_MP_5GA_P_TxPowerTrack_SDIO_8188F[][DELTA_SWINGIDX_SIZ
 };
 u1Byte gDeltaSwingTableIdx_MP_2GB_N_TxPowerTrack_SDIO_8188F[]    = {0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9};
 u1Byte gDeltaSwingTableIdx_MP_2GB_P_TxPowerTrack_SDIO_8188F[]    = {0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 7, 8, 8, 8, 8};
-u1Byte gDeltaSwingTableIdx_MP_2GA_N_TxPowerTrack_SDIO_8188F[]    = {1, 1, 3, 3, 4, 6, 6, 7, 7, 8, 9, 9, 10, 10, 12, 13, 14, 14, 16, 16, 16, 17, 17, 17, 17, 17, 17, 17, 17, 17};
-u1Byte gDeltaSwingTableIdx_MP_2GA_P_TxPowerTrack_SDIO_8188F[]    = {0, 0, 0, 1, 4, 6, 6, 6, 6, 6, 7, 7, 9, 12, 13, 14, 14, 15, 15, 16, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20};
+u1Byte gDeltaSwingTableIdx_MP_2GA_N_TxPowerTrack_SDIO_8188F[]    = {0, 1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 9, 10, 11, 12, 13, 14, 15, 16, 17, 17, 18, 18, 18, 18, 18, 18, 18, 18, 18};
+u1Byte gDeltaSwingTableIdx_MP_2GA_P_TxPowerTrack_SDIO_8188F[]    = {0, 1, 2, 2, 3, 3, 4, 5, 5, 6, 7, 8, 9, 10, 11, 11, 12, 13, 14, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15};
 u1Byte gDeltaSwingTableIdx_MP_2GCCKB_N_TxPowerTrack_SDIO_8188F[] = {0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9};
 u1Byte gDeltaSwingTableIdx_MP_2GCCKB_P_TxPowerTrack_SDIO_8188F[] = {0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5, 6, 6, 6, 6, 7, 7};
-u1Byte gDeltaSwingTableIdx_MP_2GCCKA_N_TxPowerTrack_SDIO_8188F[] = {2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 5, 5, 5, 5, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8};
-u1Byte gDeltaSwingTableIdx_MP_2GCCKA_P_TxPowerTrack_SDIO_8188F[] = {0, 0, 0, 0, 0, 0, 0, 2, 4, 5, 5, 6, 6, 6, 8, 8, 8, 9, 12, 13, 13, 13, 15, 15, 15, 15, 15, 15, 15, 15};
+u1Byte gDeltaSwingTableIdx_MP_2GCCKA_N_TxPowerTrack_SDIO_8188F[] = {0, 1, 2, 3, 4, 6, 7, 7, 8, 9, 10, 11, 11, 12, 13, 14, 14, 15, 16, 16, 17, 18, 18, 18, 18, 18, 18, 18, 18, 18};
+u1Byte gDeltaSwingTableIdx_MP_2GCCKA_P_TxPowerTrack_SDIO_8188F[] = {0, 0, 1, 2, 2, 3, 3, 4, 5, 5, 6, 7, 8, 9, 10, 11, 12, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14};
 #endif
 
 void
@@ -471,12 +482,12 @@ u1Byte gDeltaSwingTableIdx_MP_5GA_P_TxPowerTrack_USB_8188F[][DELTA_SWINGIDX_SIZE
 };
 u1Byte gDeltaSwingTableIdx_MP_2GB_N_TxPowerTrack_USB_8188F[]    = {0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 5, 5, 5, 6, 6, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9};
 u1Byte gDeltaSwingTableIdx_MP_2GB_P_TxPowerTrack_USB_8188F[]    = {0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 7, 8, 8, 8, 8};
-u1Byte gDeltaSwingTableIdx_MP_2GA_N_TxPowerTrack_USB_8188F[]    = {1, 1, 3, 3, 4, 6, 6, 7, 7, 8, 9, 9, 10, 10, 12, 13, 14, 14, 16, 16, 16, 17, 17, 17, 17, 17, 17, 17, 17, 17};
-u1Byte gDeltaSwingTableIdx_MP_2GA_P_TxPowerTrack_USB_8188F[]    = {0, 0, 0, 1, 4, 6, 6, 6, 6, 6, 7, 7, 9, 12, 13, 14, 14, 15, 15, 16, 18, 20, 20, 20, 20, 20, 20, 20, 20, 20};
+u1Byte gDeltaSwingTableIdx_MP_2GA_N_TxPowerTrack_USB_8188F[]    = {0, 1, 1, 2, 3, 4, 4, 4, 5, 6, 7, 8, 8, 9, 10, 11, 12, 13, 13, 14, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15};
+u1Byte gDeltaSwingTableIdx_MP_2GA_P_TxPowerTrack_USB_8188F[]    = {0, 1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 10, 11, 12, 13, 14, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15};
 u1Byte gDeltaSwingTableIdx_MP_2GCCKB_N_TxPowerTrack_USB_8188F[] = {0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9};
 u1Byte gDeltaSwingTableIdx_MP_2GCCKB_P_TxPowerTrack_USB_8188F[] = {0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5, 6, 6, 6, 6, 7, 7};
-u1Byte gDeltaSwingTableIdx_MP_2GCCKA_N_TxPowerTrack_USB_8188F[] = {2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 5, 5, 5, 5, 5, 5, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8};
-u1Byte gDeltaSwingTableIdx_MP_2GCCKA_P_TxPowerTrack_USB_8188F[] = {0, 0, 0, 0, 0, 0, 0, 2, 4, 5, 5, 6, 6, 6, 8, 8, 8, 9, 12, 13, 13, 13, 15, 15, 15, 15, 15, 15, 15, 15};
+u1Byte gDeltaSwingTableIdx_MP_2GCCKA_N_TxPowerTrack_USB_8188F[] = {0, 1, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 13, 14, 14, 15, 15, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16};
+u1Byte gDeltaSwingTableIdx_MP_2GCCKA_P_TxPowerTrack_USB_8188F[] = {0, 0, 1, 2, 2, 3, 3, 4, 6, 6, 7, 8, 8, 10, 10, 11, 13, 14, 14, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15};
 #endif
 
 void
@@ -513,43 +524,43 @@ ODM_ReadAndConfig_MP_8188F_TxPowerTrack_USB(
 
 const char *Array_MP_8188F_TXPWR_LMT[] = { 
 	"FCC", "2.4G", "20M", "CCK", "1T", "01", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "01", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "01", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "01", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "02", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "02", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "02", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "02", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "03", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "03", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "03", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "03", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "04", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "04", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "04", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "04", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "05", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "05", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "05", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "05", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "06", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "06", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "06", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "06", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "07", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "07", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "07", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "07", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "08", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "08", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "08", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "08", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "09", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "09", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "09", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "09", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "10", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "10", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "10", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "10", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "11", "32", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "11", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "11", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "11", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "12", "63", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "12", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "12", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "12", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "13", "63", 
-	"ETSI", "2.4G", "20M", "CCK", "1T", "13", "32", 
+	"ETSI", "2.4G", "20M", "CCK", "1T", "13", "26", 
 	"MKK", "2.4G", "20M", "CCK", "1T", "13", "32",
 	"FCC", "2.4G", "20M", "CCK", "1T", "14", "63", 
 	"ETSI", "2.4G", "20M", "CCK", "1T", "14", "63", 
@@ -1108,7 +1119,7 @@ ODM_ReadAndConfig_MP_8188F_TXPWR_LMT(
 	
 		odm_ConfigBB_TXPWR_LMT_8188F(pDM_Odm, regulation, band, bandwidth, rate, rfPath, chnl, val);
 #if (DM_ODM_SUPPORT_TYPE == ODM_WIN)
-		rsprintf(pHalData->BufOfLinesPwrLmt[i/7], 100, "\"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\",",
+		rsprintf((char *)pHalData->BufOfLinesPwrLmt[i/7], 100, "\"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\",",
 			regulation, band, bandwidth, rate, rfPath, chnl, val);
 #endif
 	}

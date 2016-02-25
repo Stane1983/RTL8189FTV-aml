@@ -796,12 +796,6 @@ void _InitOperationMode(PADAPTER padapter)
 
 void _InitInterrupt(PADAPTER padapter)
 {
-	// HISR - turn all off
-	rtw_write32(padapter, REG_HISR, 0);
-
-	// HIMR - turn all off
-	rtw_write32(padapter, REG_HIMR, 0);
-
 	//
 	// Initialize and enable SDIO Host Interrupt.
 	//
@@ -1041,7 +1035,7 @@ static u32 rtl8188fs_hal_init(PADAPTER padapter)
 		pdbgpriv->dbg_ips_drvopen_fail_cnt++;
 	}
 	
-	ret = _InitPowerOn_8188FS(padapter);
+	ret = rtw_hal_power_on(padapter);
 	if (_FAIL == ret) {
 		RT_TRACE(_module_hci_hal_init_c_, _drv_err_, ("Failed to init Power On!\n"));
 		return _FAIL;
@@ -1473,7 +1467,7 @@ static u32 rtl8188fs_hal_deinit(PADAPTER padapter)
 					pdbgpriv->dbg_carddisable_error_cnt++;
 				}
 #endif //DBG_CHECK_FW_PS_STATE
-				CardDisableRTL8188FSdio(padapter);
+				rtw_hal_power_off(padapter);
 
 				adapter_to_pwrctl(padapter)->pre_ips_type = 1;
 			}
@@ -1490,7 +1484,7 @@ static u32 rtl8188fs_hal_deinit(PADAPTER padapter)
 				pdbgpriv->dbg_carddisable_error_cnt++;
 			}
 #endif //DBG_CHECK_FW_PS_STATE
-			CardDisableRTL8188FSdio(padapter);
+			rtw_hal_power_off(padapter);
 		}
 	}
 	else

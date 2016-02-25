@@ -618,38 +618,12 @@ phy_BB8188f_Config_ParaFile(
 	int			rtStatus = _SUCCESS;
 	u8	sz8188FBRegFile[] = RTL8188F_PHY_REG;
 	u8	sz8188AGCTableFile[] = RTL8188F_AGC_TAB;
-	u8	sz8188FBBRegPgFile[] = RTL8188F_PHY_REG_PG;
 	u8	sz8188FBRegMpFile[] = RTL8188F_PHY_REG_MP;
-	u8	sz8188FRFTxPwrLmtFile[] = RTL8188F_TXPWR_LMT;
-	u8	*pszBBRegFile = NULL, *pszAGCTableFile = NULL, *pszBBRegPgFile = NULL, *pszBBRegMpFile = NULL, *pszRFTxPwrLmtFile = NULL;
+	u8	*pszBBRegFile = NULL, *pszAGCTableFile = NULL, *pszBBRegMpFile = NULL;
 
 	pszBBRegFile = sz8188FBRegFile;
 	pszAGCTableFile = sz8188AGCTableFile;
-	pszBBRegPgFile = sz8188FBBRegPgFile;
 	pszBBRegMpFile = sz8188FBRegMpFile;
-	pszRFTxPwrLmtFile = sz8188FRFTxPwrLmtFile;
-
-	/* Read Tx Power Limit File */
-	PHY_InitTxPowerLimit(Adapter);
-	if (Adapter->registrypriv.RegEnableTxPowerLimit == 1 ||
-		(Adapter->registrypriv.RegEnableTxPowerLimit == 2 && pHalData->EEPROMRegulatory == 1)) {
-#ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
-		if (PHY_ConfigRFWithPowerLimitTableParaFile(Adapter, pszRFTxPwrLmtFile) == _FAIL) {
-			/* suspect code indent for conditional statements */
-#else
-		{
-#endif
-#ifdef CONFIG_EMBEDDED_FWIMG
-			if (HAL_STATUS_SUCCESS != ODM_ConfigRFWithHeaderFile(&pHalData->odmpriv, CONFIG_RF_TXPWR_LMT, (ODM_RF_RADIO_PATH_E)0))
-				rtStatus = _FAIL;
-#endif
-		}
-
-		if (rtStatus != _SUCCESS) {
-			DBG_871X("%s():Read Tx power limit fail\n", __func__);
-			goto phy_BB8190_Config_ParaFile_Fail;
-		}
-	}
 
 	/* */
 	/* 1. Read PHY_REG.TXT BB INIT!! */
@@ -690,31 +664,6 @@ phy_BB8188f_Config_ParaFile(
 		}
 	}
 #endif	/* #if (MP_DRIVER == 1) */
-
-	/* If EEPROM or EFUSE autoload OK, We must config by PHY_REG_PG.txt */
-	PHY_InitTxPowerByRate(Adapter);
-	if (Adapter->registrypriv.RegEnableTxPowerByRate == 1 ||
-		(Adapter->registrypriv.RegEnableTxPowerByRate == 2 && pHalData->EEPROMRegulatory != 2)) {
-#ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
-		if (phy_ConfigBBWithPgParaFile(Adapter, pszBBRegPgFile) == _FAIL)
-#endif
-		{
-#ifdef CONFIG_EMBEDDED_FWIMG
-			if (HAL_STATUS_SUCCESS != ODM_ConfigBBWithHeaderFile(&pHalData->odmpriv, CONFIG_BB_PHY_REG_PG))
-				rtStatus = _FAIL;
-#endif
-		}
-
-		if (pHalData->odmpriv.PhyRegPgValueType == PHY_REG_PG_EXACT_VALUE)
-			PHY_TxPowerByRateConfiguration(Adapter);
-
-		if (Adapter->registrypriv.RegEnableTxPowerLimit == 1 ||
-			(Adapter->registrypriv.RegEnableTxPowerLimit == 2 && pHalData->EEPROMRegulatory == 1))
-			PHY_ConvertTxPowerLimitToPowerIndex(Adapter);
-
-		if (rtStatus != _SUCCESS)
-			DBG_8192C("%s():BB_PG Reg Fail!!\n", __func__);
-	}
 
 	/* */
 	/* 2. Read BB AGC table Initialization */
@@ -1350,7 +1299,8 @@ phy_PostSetBwMode8188F(
 		0x483[3:0]=1/2
 		0x440[22:21]=2'b00
 
-		0xc84[31:28]=0x2
+		0xc84[31:28]=0x2 (SDIO)
+		0xc84[31:28]=0x7 (USB)
 		*/
 		PHY_SetBBReg(Adapter, rFPGA0_RFMOD, BIT0, 0x1);
 		PHY_SetBBReg(Adapter, rFPGA1_RFMOD, BIT0, 0x1);
@@ -1368,7 +1318,12 @@ phy_PostSetBwMode8188F(
 		PHY_SetMacReg(Adapter, REG_DATA_SC_8188F, BIT3 | BIT2 | BIT1 | BIT0, SubChnlNum);	/* txsc_20 */
 		PHY_SetMacReg(Adapter, REG_RRSR_8188F, BIT22 | BIT21, 0x0);							/* RRSR_RSC */
 
+#ifdef CONFIG_SDIO_HCI
 		PHY_SetBBReg(Adapter, rOFDM0_XATxAFE, BIT31 | BIT30 | BIT29 | BIT28, 0x2); /* PDTH_BW40/ACPR */
+#endif /* CONFIG_SDIO_HCI */
+#ifdef CONFIG_USB_HCI
+		PHY_SetBBReg(Adapter, rOFDM0_XATxAFE, BIT31 | BIT30 | BIT29 | BIT28, 0x7); /* PDTH_BW40/ACPR */
+#endif /* CONFIG_USB_HCI */
 
 		if (0)
 			DBG_871X("%s: REG_DATA_SC_8188F(%d) nCur40MhzPrimeSC(%d)\n", __func__, SubChnlNum, pHalData->nCur40MhzPrimeSC);

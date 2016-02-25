@@ -82,32 +82,44 @@ PHY_RF6052SetBandwidth8188F(
 		RF_A_reg 0x18[11:10]=2'b11
 		RF_A_reg 0x87=0x00065
 		RF_A_reg 0x1c=0x00000
-		RF_A_reg 0xDF=0x00040
-		RF_A_reg 0x1b=0x00c2c
+		RF_A_reg 0x52=0xFAC2C (for USB)
+		RF_A_reg 0xDF=0x00140
+		RF_A_reg 0x1b=0x00c6c
 		*/
 		pHalData->RfRegChnlVal[0] = ((pHalData->RfRegChnlVal[0] & 0xfffff3ff) | BIT10 | BIT11);
 		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x18, bRFRegOffsetMask, pHalData->RfRegChnlVal[0]); /* RF TRX_BW */
 
 		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x87, bRFRegOffsetMask, 0x00065); /* FILTER BW&RC Corner (ACPR) */
 		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x1C, bRFRegOffsetMask, 0x00000); /* FILTER BW&RC Corner (ACPR) */
-		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0xDF, bRFRegOffsetMask, 0x00040); /* FILTER BW&RC Corner (ACPR) */
-		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x1B, bRFRegOffsetMask, 0x00C2C); /* FILTER BW&RC Corner (ACPR) */
+#ifdef CONFIG_USB_HCI
+		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x52, bRFRegOffsetMask, 0xFAC2C); /* FILTER BW&RC Corner (ACPR) */
+#endif /* CONFIG_USB_HCI */
+		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0xDF, bRFRegOffsetMask, 0x00140); /* FILTER BW&RC Corner (ACPR) */
+		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x1B, bRFRegOffsetMask, 0x00C6C); /* FILTER BW&RC Corner (ACPR) */
 		break;
 
 	case CHANNEL_WIDTH_40:
 		/*
 		RF_A_reg 0x18[11:10]=2'b01
 		RF_A_reg 0x87=0x00025
-		RF_A_reg 0x1c=0x00800
-		RF_A_reg 0xDF=0x00040
+		RF_A_reg 0x1c=0x00800 (for SDIO)
+		RF_A_reg 0x1c=0x01000 (for USB)
+		RF_A_reg 0x52=0xFAC2C (for USB)
+		RF_A_reg 0xDF=0x00140
 		RF_A_reg 0x1b=0x00c6c
 		*/
 		pHalData->RfRegChnlVal[0] = ((pHalData->RfRegChnlVal[0] & 0xfffff3ff) | BIT10);
 		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x18, bRFRegOffsetMask, pHalData->RfRegChnlVal[0]); /* RF TRX_BW */
 
 		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x87, bRFRegOffsetMask, 0x00025); /* FILTER BW&RC Corner (ACPR) */
+#ifdef CONFIG_SDIO_HCI
 		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x1C, bRFRegOffsetMask, 0x00800); /* FILTER BW&RC Corner (ACPR) */
-		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0xDF, bRFRegOffsetMask, 0x00040); /* FILTER BW&RC Corner (ACPR) */
+#endif /* CONFIG_SDIO_HCI */
+#ifdef CONFIG_USB_HCI
+		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x1C, bRFRegOffsetMask, 0x01000); /* FILTER BW&RC Corner (ACPR) */
+		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x52, bRFRegOffsetMask, 0xFAC2C); /* FILTER BW&RC Corner (ACPR) */
+#endif
+		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0xDF, bRFRegOffsetMask, 0x00140); /* FILTER BW&RC Corner (ACPR) */
 		PHY_SetRFReg(Adapter, ODM_RF_PATH_A, 0x1B, bRFRegOffsetMask, 0x00C6C); /* FILTER BW&RC Corner (ACPR) */
 		break;
 

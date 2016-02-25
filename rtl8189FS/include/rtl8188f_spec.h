@@ -294,6 +294,9 @@
 
 #define MACID_NUM_8188F 16
 #define SEC_CAM_ENT_NUM_8188F 16
+#define NSS_NUM_8188F 1
+#define BAND_CAP_8188F (BAND_CAP_2G)
+#define BW_CAP_8188F (BW_CAP_20M | BW_CAP_40M)
 
 #endif /* __RTL8188F_SPEC_H__ */
 
