@@ -1941,6 +1941,13 @@ static int cfg80211_rtw_change_iface(struct wiphy *wiphy,
 	/* initial default type */
 	ndev->type = ARPHRD_ETHER;
 
+	if (type == NL80211_IFTYPE_MONITOR) {
+		rtw_ps_deny(padapter, PS_DENY_MONITOR_MODE);
+		LeaveAllPowerSaveMode(padapter);
+	} else {
+		rtw_ps_deny_cancel(padapter, PS_DENY_MONITOR_MODE);
+	}
+
 	switch (type) {
 	case NL80211_IFTYPE_ADHOC:
 		networkType = Ndis802_11IBSS;
@@ -4669,7 +4676,11 @@ void rtw_cfg80211_rx_probe_request(_adapter *adapter, u8 *frame, uint frame_len)
 #ifdef CONFIG_DEBUG_CFG80211
 	DBG_8192C("RTW_Rx: probe request, cur_ch=%d\n", channel);
 #endif /* CONFIG_DEBUG_CFG80211 */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)) || defined(COMPAT_KERNEL_RELEASE)
 	rtw_cfg80211_rx_mgmt(adapter, freq, 0, frame, frame_len, GFP_ATOMIC);
+#else
+	cfg80211_rx_action(adapter->pnetdev, freq, frame, frame_len, GFP_ATOMIC);
+#endif
 }
 
 void rtw_cfg80211_rx_action_p2p(_adapter *padapter, u8 *pmgmt_frame, uint frame_len)
@@ -6049,16 +6060,15 @@ static int rtw_cfg80211_set_probe_resp_wpsp2pie(struct net_device *net, char *bu
 				#ifdef CONFIG_DEBUG_CFG80211		
 				//printk("config_method in wpsie of probe_resp = 0x%x\n", be16_to_cpu(*puconfig_method));
 				#endif
-				
-				//if(check_fwstate(pmlmepriv, WIFI_AP_STATE) != _TRUE)
+
 				#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)) || defined(COMPAT_KERNEL_RELEASE)
-				if(wdev->iftype != NL80211_IFTYPE_P2P_GO) //for WIFI-DIRECT LOGO 4.2.2, AUTO GO can't set PUSH_BUTTON flags
-				{
+				/* for WIFI-DIRECT LOGO 4.2.2, AUTO GO can't set PUSH_BUTTON flags */
+				if (wdev->iftype == NL80211_IFTYPE_P2P_GO) {
 					uconfig_method = WPS_CM_PUSH_BUTTON;
-					uconfig_method = cpu_to_be16( uconfig_method );
-			
-					*puconfig_method |= uconfig_method;			
-				}	
+					uconfig_method = cpu_to_be16(uconfig_method);
+
+					*puconfig_method &= ~uconfig_method;
+				}
 				#endif
 			}
 			
