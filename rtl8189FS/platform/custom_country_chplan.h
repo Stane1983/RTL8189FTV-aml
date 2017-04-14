@@ -17,21 +17,13 @@
  *
  *
  ******************************************************************************/
-#ifndef CONFIG_PLATFORM_OPS
-/*
- * Return:
- *	0:	power on successfully
- *	others: power on failed
- */
-int platform_wifi_power_on(void)
-{
-	int ret = 0;
 
+#error "You have defined CONFIG_CUSTOMIZED_COUNTRY_CHPLAN_MAP to use a customized map of your own instead of the default one"
+#error "Before removing these error notifications, please make sure regulatory certification requirements of your target markets"
 
-	return ret;
-}
+static const struct country_chplan CUSTOMIZED_country_chplan_map[] = {
+	COUNTRY_CHPLAN_ENT("TW", 0x39, 1, 0xFF), /* Taiwan */
+};
 
-void platform_wifi_power_off(void)
-{
-}
-#endif // !CONFIG_PLATFORM_OPS
+static const u16 CUSTOMIZED_country_chplan_map_sz = sizeof(CUSTOMIZED_country_chplan_map)/sizeof(struct country_chplan);
+
