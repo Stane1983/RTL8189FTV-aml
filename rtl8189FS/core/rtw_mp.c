@@ -398,6 +398,10 @@ static VOID PHY_SetRFPathSwitch_default(
 
 void mpt_InitHWConfig(PADAPTER Adapter)
 {
+	PHAL_DATA_TYPE hal;
+
+	hal = GET_HAL_DATA(Adapter);
+
 	if (IS_HARDWARE_TYPE_8723B(Adapter)) {
 		// TODO: <20130114, Kordan> The following setting is only for DPDT and Fixed board type.
 		// TODO:  A better solution is configure it according EFUSE during the run-time. 
@@ -435,6 +439,14 @@ void mpt_InitHWConfig(PADAPTER Adapter)
 	{
 		PlatformEFIOWrite2Byte(Adapter, REG_RXFLTMAP1_8822B, 0x2000);
 	}*/
+#ifdef CONFIG_RTL8188F
+	else if (IS_HARDWARE_TYPE_8188F(Adapter)) {
+		if (IS_A_CUT(hal->VersionID) || (IS_B_CUT(hal->VersionID) && hal->VersionID.irv == 0xF)) {
+			RTW_INFO("%s() Active large power detection\n", __func__);
+			phy_active_large_power_detection_8188f(&hal->odmpriv);
+		}
+	}
+#endif
 }
 
 #ifdef CONFIG_RTL8188E

@@ -648,6 +648,10 @@ void rx_query_phy_status(union recv_frame *rframe, u8 *phy_stat);
 int rtw_inc_and_chk_continual_no_rx_packet(struct sta_info *sta, int tid_index);
 void rtw_reset_continual_no_rx_packet(struct sta_info *sta, int tid_index);
 
+#ifdef CONFIG_RECV_THREAD_MODE
+thread_return rtw_recv_thread(thread_context context);
+#endif
+
 __inline static u8 *get_rxmem(union recv_frame *precvframe)
 {
 	//always return rx_head...

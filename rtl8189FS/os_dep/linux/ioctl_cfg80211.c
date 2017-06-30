@@ -891,14 +891,8 @@ void rtw_cfg80211_indicate_disconnect(_adapter *padapter)
 		#else
 
 		if (check_fwstate(&padapter->mlmepriv, _FW_LINKED)) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0))
-			u8 locally_generated = 1;
-			DBG_871X(FUNC_ADPT_FMT" call cfg80211_disconnected\n", FUNC_ADPT_ARG(padapter));
-			cfg80211_disconnected(padapter->pnetdev, 0, NULL, 0, locally_generated, GFP_ATOMIC);
-#else
 			DBG_871X(FUNC_ADPT_FMT" call cfg80211_disconnected\n", FUNC_ADPT_ARG(padapter));
 			cfg80211_disconnected(padapter->pnetdev, 0, NULL, 0, GFP_ATOMIC);
-#endif
 		} else {
 			DBG_871X(FUNC_ADPT_FMT" call cfg80211_connect_result\n", FUNC_ADPT_ARG(padapter));
 			cfg80211_connect_result(padapter->pnetdev, NULL, NULL, 0, NULL, 0, 
@@ -2040,9 +2034,7 @@ void rtw_cfg80211_indicate_scan_done(_adapter *adapter, bool aborted)
 {
 	struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(adapter);
 	_irqL	irqL;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
-    struct cfg80211_scan_info info;
-#endif
+
 	_enter_critical_bh(&pwdev_priv->scan_req_lock, &irqL);
 	if (pwdev_priv->scan_request != NULL) {
 		#ifdef CONFIG_DEBUG_CFG80211
@@ -2056,12 +2048,7 @@ void rtw_cfg80211_indicate_scan_done(_adapter *adapter, bool aborted)
 		}
 		else
 		{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
-			info.aborted = aborted;
-			cfg80211_scan_done(pwdev_priv->scan_request, &info);
-#else
 			cfg80211_scan_done(pwdev_priv->scan_request, aborted);
-#endif
 		}
 
 		pwdev_priv->scan_request = NULL;
@@ -6553,6 +6540,103 @@ static void rtw_cfg80211_preinit_wiphy(_adapter *adapter, struct wiphy *wiphy)
 #endif
 }
 
+#if defined(RTW_CONFIG_HOSTAPD_ACS) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 33))
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
+#define SURVEY_INFO_TIME			SURVEY_INFO_CHANNEL_TIME
+#define SURVEY_INFO_TIME_BUSY		SURVEY_INFO_CHANNEL_TIME_BUSY
+#define SURVEY_INFO_TIME_EXT_BUSY	SURVEY_INFO_CHANNEL_TIME_EXT_BUSY
+#define SURVEY_INFO_TIME_RX			SURVEY_INFO_CHANNEL_TIME_RX
+#define SURVEY_INFO_TIME_TX			SURVEY_INFO_CHANNEL_TIME_TX
+#endif
+
+#ifdef CONFIG_FIND_BEST_CHANNEL
+static void rtw_cfg80211_set_survey_info_with_find_best_channel(struct wiphy *wiphy
+	, struct net_device *netdev, int idx, struct survey_info *info)
+{
+	_adapter *adapter = (_adapter *)rtw_netdev_priv(netdev);
+	RT_CHANNEL_INFO *ch_set = adapter->mlmeextpriv.channel_set;
+	u8 ch_num = adapter->mlmeextpriv.max_chan_nums;
+	u32 total_rx_cnt = 0;
+	int i;
+
+	s8 noise = -50;		/*channel noise in dBm. This and all following fields are optional */
+	u64 time = 100;		/*amount of time in ms the radio was turn on (on the channel)*/
+	u64 time_busy = 0;	/*amount of time the primary channel was sensed busy*/
+
+	info->filled  = SURVEY_INFO_NOISE_DBM
+		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37))
+		| SURVEY_INFO_TIME | SURVEY_INFO_TIME_BUSY
+		#endif
+		;
+
+	for (i = 0; i < ch_num; i++)
+		total_rx_cnt += ch_set[i].rx_count;
+
+	time_busy = ch_set[idx].rx_count * time / total_rx_cnt;
+	noise += ch_set[idx].rx_count * 50 / total_rx_cnt;
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37))
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0))
+	info->channel_time = time;
+	info->channel_time_busy = time_busy;
+	#else
+	info->time = time;
+	info->time_busy = time_busy;
+	#endif
+#endif
+	info->noise = noise;
+
+	/* reset if final channel is got */
+	if (idx == ch_num - 1) {
+		for (i = 0; i < ch_num; i++)
+			ch_set[i].rx_count = 0;
+	}
+}
+#endif /* CONFIG_FIND_BEST_CHANNEL */
+
+int rtw_hostapd_acs_dump_survey(struct wiphy *wiphy, struct net_device *netdev, int idx, struct survey_info *info)
+{
+	PADAPTER padapter = (_adapter *)rtw_netdev_priv(netdev);
+	RT_CHANNEL_INFO *pch_set = padapter->mlmeextpriv.channel_set;
+	u8 max_chan_nums = padapter->mlmeextpriv.max_chan_nums;
+	u32 freq = 0;
+	u8 ret = 0;
+	u16 channel = 0;
+
+	if (!netdev || !info) {
+		RTW_INFO("%s: invial parameters.\n", __func__);
+		return -EINVAL;
+	}
+
+	_rtw_memset(info, 0, sizeof(struct survey_info));
+	if (padapter->bup == _FALSE) {
+		RTW_INFO("%s: net device is down.\n", __func__);
+		return -EIO;
+	}
+
+	if (idx >= max_chan_nums)
+		return -ENOENT;
+
+	channel = pch_set[idx].ChannelNum;
+	freq = rtw_ch2freq(channel);
+	info->channel = ieee80211_get_channel(wiphy, freq);
+	/* RTW_INFO("%s: channel %d, freq %d\n", __func__, channel, freq); */
+
+	if (!info->channel)
+		return -EINVAL;
+
+	if (info->channel->flags == IEEE80211_CHAN_DISABLED)
+		return ret;
+
+#ifdef CONFIG_FIND_BEST_CHANNEL
+	rtw_cfg80211_set_survey_info_with_find_best_channel(wiphy, netdev, idx, info);
+#endif
+
+	return ret;
+}
+#endif /* defined(RTW_CONFIG_HOSTAPD_ACS) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 33)) */
+
 static struct cfg80211_ops rtw_cfg80211_ops = {
 	.change_virtual_intf = cfg80211_rtw_change_iface,
 	.add_key = cfg80211_rtw_add_key,
@@ -6627,6 +6711,10 @@ static struct cfg80211_ops rtw_cfg80211_ops = {
 	.sched_scan_start = cfg80211_rtw_sched_scan_start,
 	.sched_scan_stop = cfg80211_rtw_sched_scan_stop,
 #endif /* CONFIG_PNO_SUPPORT */
+
+#if defined(RTW_CONFIG_HOSTAPD_ACS) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 33))
+	.dump_survey = rtw_hostapd_acs_dump_survey,
+#endif
 };
 
 struct wiphy *rtw_wiphy_alloc(_adapter *padapter, struct device *dev)
@@ -6777,13 +6865,7 @@ void rtw_wdev_unregister(struct wireless_dev *wdev)
 
 	rtw_cfg80211_indicate_scan_done(adapter, _TRUE);
 
-	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0))
-	if (wdev->current_bss) {
-		u8 locally_generated = 1;
-		DBG_871X(FUNC_ADPT_FMT" clear current_bss by cfg80211_disconnected\n", FUNC_ADPT_ARG(adapter));
-		cfg80211_disconnected(adapter->pnetdev, 0, NULL, 0, locally_generated, GFP_ATOMIC);
-	}
-	#elif ((LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0))) || defined(COMPAT_KERNEL_RELEASE)	
+	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0)) || defined(COMPAT_KERNEL_RELEASE)	
 	if (wdev->current_bss) {
 		DBG_871X(FUNC_ADPT_FMT" clear current_bss by cfg80211_disconnected\n", FUNC_ADPT_ARG(adapter));
 		cfg80211_disconnected(adapter->pnetdev, 0, NULL, 0, GFP_ATOMIC);
@@ -6828,6 +6910,7 @@ exit:
 void rtw_cfg80211_ndev_res_free(_adapter *adapter)
 {
 	rtw_wdev_free(adapter->rtw_wdev);
+	adapter->rtw_wdev = NULL;
 #if !defined(RTW_SINGLE_WIPHY)
 	rtw_wiphy_free(adapter_to_wiphy(adapter));
 	adapter->wiphy = NULL;
