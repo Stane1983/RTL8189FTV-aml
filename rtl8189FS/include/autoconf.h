@@ -57,7 +57,6 @@
 		#define CONFIG_HOSTAPD_MLME
 	#endif
 	/* #define CONFIG_FIND_BEST_CHANNEL */
-	#define CONFIG_TX_MCAST2UNI	/* Support IP multicast->unicast */
 #endif
 
 #define CONFIG_P2P
@@ -128,12 +127,15 @@
  */
 #define CONFIG_SDIO_CHK_HCI_RESUME
 #define CONFIG_TX_AGGREGATION
+#define SDIO_FREE_XMIT_BUF_SEMA
 #define CONFIG_SDIO_RX_COPY
 #define CONFIG_XMIT_THREAD_MODE
-/* #define CONFIG_SDIO_TX_ENABLE_AVAL_INT */
+#define CONFIG_SDIO_TX_ENABLE_AVAL_INT
 
 /* #define CONFIG_RECV_THREAD_MODE */
-
+#ifdef CONFIG_RECV_THREAD_MODE
+#define RTW_RECV_THREAD_HIGH_PRIORITY
+#endif/*CONFIG_RECV_THREAD_MODE*/
 /*
  * Others
  */
@@ -151,7 +153,6 @@
 
 #define CONFIG_LONG_DELAY_ISSUE
 /* #define CONFIG_PATCH_JOIN_WRONG_CHANNEL */
-#define CONFIG_ATTEMPT_TO_FIX_AP_BEACON_ERROR
 
 
 /*
@@ -222,8 +223,6 @@
 #else /* !CONFIG_RTW_DEBUG */
 #define DBG	0	/* for ODM & BTCOEX debug */
 #endif /* CONFIG_RTW_DEBUG */
-
-#define CONFIG_PROC_DEBUG
 
 #define DBG_CONFIG_ERROR_DETECT
 /* #define DBG_XMIT_BUF */

@@ -24,19 +24,17 @@
 ******************************************************************************/
 
 void
-odm_read_and_config_mp_8188f_radioa(/* tc: Test Chip, mp: mp Chip*/
-	struct	dm_struct *dm
-);
-u32	odm_get_version_mp_8188f_radioa(void);
+odm_read_and_config_mp_8188f_radioa( /* tc: Test Chip, mp: mp Chip*/
+				    struct dm_struct *dm);
+u32 odm_get_version_mp_8188f_radioa(void);
 
 /******************************************************************************
 *                           txpowertrack_ap.TXT
 ******************************************************************************/
 
 void
-odm_read_and_config_mp_8188f_txpowertrack_ap(/* tc: Test Chip, mp: mp Chip*/
-	struct	dm_struct *dm
-);
+odm_read_and_config_mp_8188f_txpowertrack_ap( /* tc: Test Chip, mp: mp Chip*/
+					     struct dm_struct *dm);
 u32	odm_get_version_mp_8188f_txpowertrack_ap(void);
 
 /******************************************************************************
@@ -44,9 +42,8 @@ u32	odm_get_version_mp_8188f_txpowertrack_ap(void);
 ******************************************************************************/
 
 void
-odm_read_and_config_mp_8188f_txpowertrack_sdio(/* tc: Test Chip, mp: mp Chip*/
-	struct	dm_struct *dm
-);
+odm_read_and_config_mp_8188f_txpowertrack_sdio( /* tc: Test Chip, mp: mp Chip*/
+					       struct dm_struct *dm);
 u32	odm_get_version_mp_8188f_txpowertrack_sdio(void);
 
 /******************************************************************************
@@ -54,9 +51,8 @@ u32	odm_get_version_mp_8188f_txpowertrack_sdio(void);
 ******************************************************************************/
 
 void
-odm_read_and_config_mp_8188f_txpowertrack_usb(/* tc: Test Chip, mp: mp Chip*/
-	struct	dm_struct *dm
-);
+odm_read_and_config_mp_8188f_txpowertrack_usb( /* tc: Test Chip, mp: mp Chip*/
+					      struct dm_struct *dm);
 u32	odm_get_version_mp_8188f_txpowertrack_usb(void);
 
 /******************************************************************************
@@ -64,9 +60,8 @@ u32	odm_get_version_mp_8188f_txpowertrack_usb(void);
 ******************************************************************************/
 
 void
-odm_read_and_config_mp_8188f_txpwr_lmt(/* tc: Test Chip, mp: mp Chip*/
-	struct	dm_struct *dm
-);
+odm_read_and_config_mp_8188f_txpwr_lmt( /* tc: Test Chip, mp: mp Chip*/
+				       struct dm_struct *dm);
 u32	odm_get_version_mp_8188f_txpwr_lmt(void);
 
 #endif
